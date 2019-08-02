@@ -21,10 +21,10 @@ email = "pchovanec@lncrna.caltech.edu"
 # split_fq = "/mnt/data/sprite-pipeline/split_dpm_rpm_fq.py"
 
 
-barcode_id_jar = "/groups/guttman/Peter/sprite-pipeline/java/BarcodeIdentification_v1.2.0.jar"
-lig_eff = "/groups/guttman/Peter/sprite-pipeline/python/get_ligation_efficiency.py"
-split_fq = "/groups/guttman/Peter/sprite-pipeline/split_dpm_rpm_fq.py"
-atttb = "/groups/guttman/Peter/sprite-pipeline/add_tnx_tag_to_bam.py"
+barcode_id_jar = "sprite-pipeline/java/BarcodeIdentification_v1.2.0.jar"
+lig_eff = "sprite-pipeline/python/get_ligation_efficiency.py"
+split_fq = "sprite-pipeline/split_dpm_rpm_fq.py"
+atttb = "sprite-pipeline/add_tnx_tag_to_bam.py"
 
 
 try:
@@ -33,10 +33,20 @@ except:
     bid_config = "workup/config.txt"
     print('Config "bID" not specified, looking for config at:', bid_config)
 
+try:
+    num_tags = config['num_tags']
+except:
+    num_tags = "5"
+    print('Config "num_tags" not specified, using:', num_tags)
+
 # STAR PARAMS
 #star = "/software/STAR/2.5.3a/bin/STAR"
 #star_genome = "/groups/guttman/genomes/mus_musculus/mm9/star"
-#star_params = "--limitBAMsortRAM 2796499043 --runThreadN 10 --outFilterMultimapNmax 50 --outFilterScoreMinOverLread 0.30 --outFilterMatchNminOverLread 0.30 --outFilterIntronMotifs None --alignIntronMax 50000 --alignMatesGapMax 1000 --genomeLoad NoSharedMemory --outReadsUnmapped Fastx --alignIntronMin 80 --alignSJDBoverhangMin 5 --sjdbOverhang 100 --outSAMtype BAM SortedByCoordinate --outSAMattributes All --readFilesCommand zcat"
+#star_params = "--limitBAMsortRAM 2796499043 --runThreadN 10 --outFilterMultimapNmax 50 
+# --outFilterScoreMinOverLread 0.30 --outFilterMatchNminOverLread 0.30 --outFilterIntronMotifs None 
+# --alignIntronMax 50000 --alignMatesGapMax 1000 --genomeLoad NoSharedMemory --outReadsUnmapped Fastx 
+# --alignIntronMin 80 --alignSJDBoverhangMin 5 --sjdbOverhang 100 --outSAMtype BAM SortedByCoordinate 
+# --outSAMattributes All --readFilesCommand zcat"
 # star_genome = "/groups/guttman/genomes/mus_musculus/mm9/star"
 
 #Installed in my local conda
@@ -95,7 +105,7 @@ DNA_star_params = "--runMode alignReads \
 
 # all_tags = "/mnt/data/sprite-pipeline/python/filter_all_tags.py"
 
-all_tags = "/groups/guttman/Peter/sprite-pipeline/python/filter_all_tags.py"
+all_tags = "sprite-pipeline/python/filter_all_tags.py"
 
 # mask = "/groups/guttman/genomes/mus_musculus/mm9/masks/mm9.gatk35-and-rmsk140.bed"
 
@@ -107,8 +117,8 @@ mm10_mask = "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDi
 # CLUSTER PARAMS
 # get_clusters = "/groups/guttman/software/sprite-pipeline/python/get_clusters.py"
 
-get_clusters = "/groups/guttman/Peter/sprite-pipeline/python/get_clusters.py"
-num_tags = "5"
+get_clusters = "sprite-pipeline/python/get_clusters.py"
+
 # rscript = "/central/software/R/3.5.0/bin/Rscript"
 # cluster_plot = "/groups/guttman/software/sprite-pipeline/r/get_cluster_size_distribution.r"
 
@@ -173,9 +183,6 @@ rule all:
     input: ALL_FASTQ + ALL_TRIM + TRIM_LOG + ALL_BARCODEID + LE_LOG_ALL + RPM_ALL + \
            DPM_ALL + OTHER_ALL + STAR_ALL_RNAr + STAR_ALL_DNA + STAR_ALL_RNA + STAR_RNA_UNMAP +
            MAPQ_ALL + TAG_ALL + BCS_ALL + ANNO_RNA + MASKED_ALL + CLUSTERS_ALL
-    # input: ALL_FASTQ + ALL_TRIM + TRIM_LOG + ALL_BARCODEID + LE_LOG_ALL + RPM_ALL + \
-           # DPM_ALL + OTHER_ALL  + MERGED_ALL_STAR + BCS_ALL + \
-           # MASKED_ALL + CLUSTERS_ALL + STAR_RNA_UNMAP + STAR_ALL_RNAr + STAR_ALL_DNA + ANNO_RNA
 
 #Send and email if an error occurs during execution
 onerror:

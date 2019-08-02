@@ -31,6 +31,9 @@ def add_chr_to_bam_header(bam_path, chroms):
             bam_path (str): path to bam file
             chroms (list): list of core chromosomes to retain in the header
 
+        Note:
+            Assumes main chromosomes come first followed by alt, that will be removed 
+
         Return:
             header dict for pysam
     '''
