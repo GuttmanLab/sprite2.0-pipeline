@@ -1,5 +1,5 @@
 
-
+#%%
 from tqdm import tqdm
 from collections import defaultdict, Counter
 from babrahamlinkon.general import fastq_parse, file_open
@@ -19,7 +19,7 @@ consensus sequence/quality and write out. Bundles (UMI groups) that have very di
 are filtered out.
 '''
 
-
+#%%
 def make_bundle(fastq, umi_len, orientation='r1'):
     '''bundle reads using umi sequence
     '''
@@ -59,17 +59,18 @@ def make_bundle(fastq, umi_len, orientation='r1'):
                 reads_dict[umi]['read'] = qname
                 reads_dict[umi]['seq'] = Counter([trim_seq]) #add all the seqs for consensus
 
-        #if same sequence has 2 quals take highest
+    #if same sequence has 2 quals take highest
 
-        for k,v in qual_dict.items():
-            if len(v) > 1:
-                qual_lofls = [list(item) for item in v]
-                qual_dict[k] = [deduplication_general.qual_highest(qual_lofls)]
+    for k,v in qual_dict.items():
+        if len(v) > 1:
+            qual_lofls = [list(item) for item in v]
+            qual_dict[k] = [deduplication_general.qual_highest(qual_lofls)]
 
     return (reads_dict, qual_dict)
 
 
 
+#%%
 class results():
     '''Holder for results
     '''
@@ -125,7 +126,8 @@ def reduce_clusters_worker(bundle, clusters, counts, qual_dict,
     cons_diffs = defaultdict()
     cons_algn = defaultdict()
 
-    for cluster in clusters:
+
+    for cluster in tqdm(clusters):
         umi_in_cluster = len(cluster)
         #Consensus for read loss filter
         out_dict = {umi:bundle[umi]['seq'] for umi in cluster}
@@ -136,9 +138,11 @@ def reduce_clusters_worker(bundle, clusters, counts, qual_dict,
             corrected += 1
 
         alignment, new_qual_dict = deduplication_general.kalign_msa(out_dict, qual_dict)
-        gt_ratio, consensus_seq, consensus_qual, diffs_from_cons = deduplication_general.read_loss(alignment, new_qual_dict, differences=mismtch,
-                                                                             no_msa=False, cons_no_qual=cons_no_qual,
-                                                                             j_trim=0, with_N=with_N) #umi=umi_cons
+        gt_ratio, consensus_seq, consensus_qual, diffs_from_cons = \
+            deduplication_general.read_loss(alignment, new_qual_dict, 
+                                            differences=mismtch,
+                                            no_msa=False, cons_no_qual=cons_no_qual,
+                                            j_trim=0, with_N=with_N) #umi=umi_cons
 
         #keep record of the distance between sequence and consensus per UMI bases (clustered UMIs seperated by ,)
         if not isinstance(diffs_from_cons, int):
@@ -191,9 +195,12 @@ def deduplicate_bundle_parallel(bundle, qual_dict,
     for key in bundle.keys():
         clusters.append(set([key]))
 
+    print('Number of clusters to process:', len(clusters))
+
     list_of_clusters = chunk_it(clusters, threads)
 
     counts = {umi: bundle[umi]['count'] for umi in umis}
+
 
     #num_input
     bundle_results.num_input += sum([bundle[umi]['count'] for umi in bundle])
@@ -207,7 +214,7 @@ def deduplicate_bundle_parallel(bundle, qual_dict,
     #     dir_adj_results[0][8]['counts'].extend([bundle[UMI]['count'] for UMI in bundle]) #umi counts
 
     dir_adj_results_lists = \
-    Parallel(n_jobs=threads)(delayed(reduce_clusters_worker)(bundle, clusters, counts,
+    Parallel(n_jobs=threads, backend='loky')(delayed(reduce_clusters_worker)(bundle, clusters, counts,
     qual_dict, gt_threshold, cons_no_qual, mismatch, with_N) for clusters in list_of_clusters)
 
     for reads_s, consensus_seqs_s, consensus_quals_s, final_umis_s, umi_counts_s, low_gt_s, \
@@ -387,6 +394,25 @@ def aggregate_stats_df(stats_df):
     return agg_df
 
 
+def cap_clusters(bundle):
+    '''If UMI cluster has more than 1000 unique sequences, do not make consensus,
+    but just discard
+
+    Args:
+        bundle(tuple): reads_dict and quals_dict
+    '''
+    umi_remove = []
+    for k, v in bundle[0].items():
+        if len(v['seq']) >= 1000:
+            umi_remove.append(k)
+
+    print('Will remove', len(umi_remove), 'clusters')
+
+    for k in umi_remove:
+        bundle[0].pop(k, None)
+        bundle[1].pop(k, None)
+
+    return(bundle)
 
 
 
@@ -401,6 +427,8 @@ def parse_args():
                         help='Length of UMI sequence')
     parser.add_argument('--threads', dest='threads', type=int, default=1,
                         help='Number of threads to use for parallel computation')
+    parser.add_argument('--count_cut', dest='cut', type=int, default=0,
+                        help='Number of reads per cluster in order to retain that cluster')
     opts = parser.parse_args()
 
     return opts
@@ -441,7 +469,16 @@ def main():
     low_name = input_fq.split('.')[0] + '_low_count_umi.fastq'
     out_prefix = input_fq.split('.')[0] + '_umi'
 
-    read_bundles = make_bundle(input_fq, opts.umi_len, opts.orient)
+    read_bundles_all = make_bundle(input_fq, opts.umi_len, opts.orient)
+
+    #examine bundles to check for extremely large umi clusters that are causing memory leaks
+    # test_bundle = make_bundle('/mnt/data/20190621_PB_PC_SQ/assembled/PB-PC_S2_L001_R1_001_val_1.assembled.fastq.gz', umi_len=16, orientation='r2')
+    largest_bundle = max([len(i['seq']) for i in read_bundles_all[0].values()])
+    print('Largest cluster:', largest_bundle)
+
+
+    #cap cluster sizes at 1000 to avoid memory leak warnings
+    read_bundles = cap_clusters(read_bundles_all)
 
     deduplication_results = deduplicate_bundle_parallel(read_bundles[0], read_bundles[1],
                                                         mismatch=5, gt_threshold=1,
@@ -455,7 +492,7 @@ def main():
         stats_pre_df_dict, stats_post_df_dict, pre_cluster_stats, post_cluster_stats, \
         num_input, num_output, low_gt_reads, corrected_reads, \
         low_gt_corrected_reads, low_umi_count, stats_cons_diffs=\
-        write_out_deduplicated(deduplication_results, low_umi_out, fq_out, stats=True, min_reads=0,
+        write_out_deduplicated(deduplication_results, low_umi_out, fq_out, stats=True, min_reads=opts.cut,
                                pdf_out=pdf)
 
     num_input_an1 += num_input
@@ -533,3 +570,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+#%%

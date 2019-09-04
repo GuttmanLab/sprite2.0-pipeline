@@ -205,7 +205,7 @@ def sticky2ansi(seq):
                            Style.RESET_ALL,])
         i = m.end()
 
-    return ''.join([output, seq[m.end():]])
+    return ''.join([output, seq[i:]])
 
 
 

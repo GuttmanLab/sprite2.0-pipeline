@@ -39,29 +39,40 @@ except:
     num_tags = "5"
     print('Config "num_tags" not specified, using:', num_tags)
 
-# STAR PARAMS
-#star = "/software/STAR/2.5.3a/bin/STAR"
-#star_genome = "/groups/guttman/genomes/mus_musculus/mm9/star"
-#star_params = "--limitBAMsortRAM 2796499043 --runThreadN 10 --outFilterMultimapNmax 50 
-# --outFilterScoreMinOverLread 0.30 --outFilterMatchNminOverLread 0.30 --outFilterIntronMotifs None 
-# --alignIntronMax 50000 --alignMatesGapMax 1000 --genomeLoad NoSharedMemory --outReadsUnmapped Fastx 
-# --alignIntronMin 80 --alignSJDBoverhangMin 5 --sjdbOverhang 100 --outSAMtype BAM SortedByCoordinate 
-# --outSAMattributes All --readFilesCommand zcat"
-# star_genome = "/groups/guttman/genomes/mus_musculus/mm9/star"
+#Make pipeline compatible for multiple species
+try:
+    species = config['species']
+    assert species in ['mm10', 'hg19'], 'Only "mm10" or "hg19" currently supported'
+except:
+    print('Config "species" not specified, defaulting to "mm10"')
+    species = 'mm10'
 
-#Installed in my local conda
-#conda install -c bioconda star
-# star = "STAR"
+try:
+    sprite_type = config['type']
+    assert sprite_type in ['DNA-DNA', 'RNA-DNA'], 'Only "DNA-DNA" or "RNA-DNA" currently supported'
+except:
+    print('Config "type" not specified, defaulting to "RNA-DNA"')
+    sprite_type = 'RNA-DNA'
+
 
 # star_index = "/mnt/data/genomes/GRCm38.p6/star"
 # hisat2_index = "/mnt/data/genomes/GRCm38.p6/GRCm38.p6"
 # bowtie2_index = "/mnt/data/genomes/GRCm38.p6/GRCm38.p6"
 
-star_index = "/groups/guttman/Peter/genomes/GRCm38.p6/star"
-star_repeat_index = "/groups/guttman/Peter/genomes/ncRNA/star"
-hisat2_index = "/groups/guttman/Peter/genomes/GRCm38.p6"
-bowtie2_index = "/groups/guttman/Peter/genomes/GRCm38.p6"
-anno_gtf = "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"
+
+if species == 'mm10':
+    star_index = "/groups/guttman/Peter/genomes/GRCm38.p6/star"
+    star_repeat_index = "/groups/guttman/Peter/genomes/ncRNA/star"
+    hisat2_index = "/groups/guttman/Peter/genomes/GRCm38.p6"
+    bowtie2_index = "/groups/guttman/Peter/genomes/GRCm38.p6"
+    anno_gtf = "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"
+    mask = "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
+elif species == 'hg19':
+    star_index = "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19"
+    star_repeat_index = "/groups/guttman/dmariani/Hs-45S"
+    anno_gtf = "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19/gencode.v19.annotation.gtf"
+    mask = "/groups/guttman/genomes/combinations/hg19_mm9/masks/hg19-mm9.gatk35-and-rmsk140.bed"
+
 
 RNA_star_params = "--runMode alignReads \
 --outFilterMultimapNmax 50 \
@@ -112,7 +123,6 @@ all_tags = "sprite-pipeline/python/filter_all_tags.py"
 # mm10_mask = "/mnt/data/genomes/GRCm38.p6/masks_by_others/GRCm38.primary_assembly.genome.gatk-mask.35.bed"
 
 #mm10_mask = "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38-pri.gatk35-and-rmsk140.bed"
-mm10_mask = "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
 
 # CLUSTER PARAMS
 # get_clusters = "/groups/guttman/software/sprite-pipeline/python/get_clusters.py"
@@ -142,52 +152,76 @@ for SAMPLE, file in FILES.items():
 
 # ALL_FASTQ = expand("raw/{sample}_{read}.fastq.gz", sample = ALL_SAMPLES, read = ["R1", "R2"])
 
-ALL_TRIM = expand("workup/trimmed/{sample}_{read}.fq.gz", sample = ALL_SAMPLES, read = ["R1_val_1", "R2_val_2"])
+#Shared
+TRIM = expand("workup/trimmed/{sample}_{read}.fq.gz", sample = ALL_SAMPLES, read = ["R1_val_1", "R2_val_2"])
 TRIM_LOG = expand("workup/trimmed/{sample}_{read}.fastq.gz_trimming_report.txt", sample = ALL_SAMPLES, read = ["R1", "R2"])
-ALL_BARCODEID = expand("workup/fastqs/{sample}_{read}.barcoded.fastq.gz", sample = ALL_SAMPLES, read = ["R1", "R2"])
-# LE_LOG = expand("workup/logs/{sample}.bID.log", sample = ALL_SAMPLES)
-# LE_LOG = expand("workup/{sample}.ligation_efficiency.txt", sample=ALL_SAMPLES)
 LE_LOG_ALL = ["workup/ligation_efficiency.txt"]
-RPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_SAMPLES)
-DPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz", sample=ALL_SAMPLES)
-OTHER_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_SAMPLES)
+STAR_ALL_DNA = expand("workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.bam", sample=ALL_SAMPLES)
+MASKED = expand("workup/alignments/{sample}.DNA.all_bcs.masked.bam", sample=ALL_SAMPLES)
+CLUSTERS = expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES)
+MULTI_QC = "workup/qc/multiqc.html"
+#RNA-DNA
+BARCODEID = expand("workup/fastqs/{sample}_{read}.barcoded.fastq.gz", sample = ALL_SAMPLES, read = ["R1", "R2"])
+RPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz", sample=ALL_SAMPLES)
+DPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_SAMPLES)
 STAR_ALL_RNAr = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam", sample=ALL_SAMPLES)
 STAR_RNA_UNMAP = expand("workup/alignments/{sample}.RNAr.unmapped.fastq.gz", sample=ALL_SAMPLES)
 STAR_ALL_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam", sample=ALL_SAMPLES)
-STAR_ALL_DNA = expand("workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.bam", sample=ALL_SAMPLES)
-# HISAT2_ALL = expand("workup/alignments/{sample}.hisat2.bam", sample=ALL_SAMPLES)
-# BOWTIE2_ALL = expand("workup/alignments/{sample}.bowtie2.bam", sample=ALL_SAMPLES)
-# MERGED_ALL = expand("workup/alignments/{sample}.merged.bam", sample=ALL_SAMPLES)
-# MERGED_ALL_STAR = expand("workup/alignments/{sample}.merged.bam", sample=ALL_SAMPLES)
 MAPQ_ALL = expand(["workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.mapq20.bam",
            "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
            "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam"], sample=ALL_SAMPLES)
 BCS_ALL = expand(["workup/alignments/{sample}.DNA.all_bcs.bam",
           "workup/alignments/{sample}.RNA.all_bcs.bam",
           "workup/alignments/{sample}.RNAr.all_bcs.bam"], sample=ALL_SAMPLES)
-MASKED_ALL = expand("workup/alignments/{sample}.DNA.all_bcs.masked.bam", sample=ALL_SAMPLES)
 TAG_ALL = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam", sample=ALL_SAMPLES)
 ANNO_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.bam", sample=ALL_SAMPLES)
-CLUSTERS_ALL = expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES)
+
+#DNA-DNA
+BARCODEID_DNA = expand("workup/fastqs/{sample}_{read}.barcoded_dpm.fastq.gz", sample = ALL_SAMPLES, read = ["R1", "R2"])
+MAPQ_DNA = expand("workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.mapq20.bam", sample=ALL_SAMPLES)
+BCS_DNA = expand("workup/alignments/{sample}.DNA.all_bcs.bam", sample=ALL_SAMPLES)
 
 
-# rule all:
-#     input:
-#         "workup/ligation_efficiency.txt",
-#         expand("workup/clusters/{sample}.clusters", sample=samples),
-#         "s3"
 
-rule all:
-    # input:
-    #     CLUSTERS_ALL
-    input: ALL_FASTQ + ALL_TRIM + TRIM_LOG + ALL_BARCODEID + LE_LOG_ALL + RPM_ALL + \
-           DPM_ALL + OTHER_ALL + STAR_ALL_RNAr + STAR_ALL_DNA + STAR_ALL_RNA + STAR_RNA_UNMAP +
-           MAPQ_ALL + TAG_ALL + BCS_ALL + ANNO_RNA + MASKED_ALL + CLUSTERS_ALL
+
+# HISAT2_ALL = expand("workup/alignments/{sample}.hisat2.bam", sample=ALL_SAMPLES)
+# BOWTIE2_ALL = expand("workup/alignments/{sample}.bowtie2.bam", sample=ALL_SAMPLES)
+# MERGED_ALL = expand("workup/alignments/{sample}.merged.bam", sample=ALL_SAMPLES)
+# MERGED_ALL_STAR = expand("workup/alignments/{sample}.merged.bam", sample=ALL_SAMPLES)
+# OTHER_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_SAMPLES)
+
+
+if species == 'mm10':
+    if sprite_type == 'RNA-DNA':
+        rule all:
+            input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + RPM_ALL +
+                DPM_ALL + STAR_ALL_RNAr + STAR_ALL_DNA + STAR_ALL_RNA + 
+                STAR_RNA_UNMAP + MAPQ_ALL + TAG_ALL + BCS_ALL + ANNO_RNA + MASKED + 
+                CLUSTERS + MULTI_QC #+ OTHER_ALL
+    elif sprite_type == 'DNA-DNA':
+        rule_all:
+            input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + BARCODEID_DNA +
+                   CLUSTERS + STAR_ALL_DNA +MULTI_QC
+elif species == 'hg19':
+    if sprite_type == 'RNA-DNA':
+        rule all:
+            input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + RPM_ALL +
+                DPM_ALL + STAR_ALL_RNAr + STAR_ALL_DNA + STAR_ALL_RNA + 
+                STAR_RNA_UNMAP + MAPQ_ALL + TAG_ALL + BCS_ALL + ANNO_RNA + MASKED + 
+                CLUSTERS + MULTI_QC
+    elif sprite_type == 'DNA-DNA':
+        rule all:
+            input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + BARCODEID_DNA +
+                   CLUSTERS + STAR_ALL_DNA + MULTI_QC
 
 #Send and email if an error occurs during execution
 onerror:
     shell('mail -s "an error occurred" ' + email + ' < {log}')
 
+
+####################################################################################################
+#Rules
+####################################################################################################
 
 #Trim adaptors
 #multiple cores requires pigz to be installed on the system
@@ -220,8 +254,11 @@ rule barcode_id:
         r1 = "workup/trimmed/{sample}_R1_val_1.fq.gz",
         r2 = "workup/trimmed/{sample}_R2_val_2.fq.gz",
     output:
-        r1_barcoded = "workup/fastqs/{sample}_R1.barcoded.fastq.gz",
-        r2_barcoded = "workup/fastqs/{sample}_R2.barcoded.fastq.gz"
+    #if statements have to be inline (each input is like a function)
+        r1_barcoded = "workup/fastqs/{sample}_R1.barcoded.fastq.gz" if sprite_type == 'RNA-DNA' 
+        else "workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz",
+        r2_barcoded = "workup/fastqs/{sample}_R2.barcoded.fastq.gz" if sprite_type == 'RNA-DNA'
+        else "workup/fastqs/{sample}_R2.barcoded_dpm.fastq.gz"
     log:
         "workup/logs/{sample}.bID.log"
     shell:
@@ -362,7 +399,7 @@ rule star_align_dna:
 
 
 
-rule mapq_filter:
+rule mapq_filter_RNA_DNA:
     input:
         dpm="workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.bam",
         rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam",
@@ -382,6 +419,20 @@ rule mapq_filter:
         samtools view -b -q 20 -o {output.dpm} {input.dpm}
         samtools view -b -q 20 -o {output.rpm} {input.rpm}
         samtools view -b -q 20 -o {output.rpm_repeat} {input.rpm_repeat}
+        '''
+
+rule mapq_filter_DNA_DNA:
+    input:
+        dpm="workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.bam"
+    output:
+        dpm="workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.mapq20.bam"
+    log:
+        "workup/logs/{sample}.DNA_mapq.log"
+    conda:
+        "envs/samtools.yaml"
+    shell:
+        '''
+        samtools view -b -q 20 -o {output.dpm} {input.dpm}
         '''
 
 
@@ -447,7 +498,7 @@ rule annotate_rna:
 #         {samtools} merge -@ {threads} {output.merged} {output.dpm} {input.rpm} {input.rpm_repeat} &> {log}
 #         '''
 
-rule all_barcodes:
+rule all_barcodes_RNA_DNA:
     input:
         # "workup/alignments/{sample}.merged.bam"
         dpm="workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.mapq20.bam",
@@ -467,31 +518,47 @@ rule all_barcodes:
         "envs/python_dep.yaml"
     shell:
         '''
-        python {all_tags} -i {input.dpm} -o {output.dpm} --assembly mm10 &> {log.dpm}
-        python {all_tags} -i {input.rpm} -o {output.rpm} --assembly mm10 &> {log.rpm}
+        python {all_tags} -i {input.dpm} -o {output.dpm} --assembly {species} &> {log.dpm}
+        python {all_tags} -i {input.rpm} -o {output.rpm} --assembly {species} &> {log.rpm}
         python {all_tags} -i {input.rpm_repeat} -o {output.rpm_repeat} --assembly none &> {log.rpm_repeat}
         '''
+
+
+rule all_barcodes_DNA_DNA:
+    input:
+        "workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.mapq20.bam",
+    output:
+        "workup/alignments/{sample}.DNA.all_bcs.bam",
+    log:
+        "workup/logs/{sample}.DNA_bcs.log",
+    conda:
+        "envs/python_dep.yaml"
+    shell:
+        '''
+        python {all_tags} -i {input} -o {output} --assembly {species} &> {log}
+        '''
+
+
+
 
 rule repeat_mask:
     input:
         # "workup/alignments/{sample}.merged.all_bcs.bam"{samtools} view -b -q 255 -o {output.dpm} {input.dpm}
         "workup/alignments/{sample}.DNA.all_bcs.bam"
     output:
-        # "workup/alignments/{sample}.merged.all_bcs.masked.bam"
         "workup/alignments/{sample}.DNA.all_bcs.masked.bam"
     conda:
         "envs/bedtools.yaml"
     shell:
         '''
-        bedtools intersect -v -a {input} -b {mm10_mask} > {output}
+        bedtools intersect -v -a {input} -b {mask} > {output}
         '''
 
-rule make_clusters_merged:
+rule make_merged_clusters:
     input:
         dpm="workup/alignments/{sample}.DNA.all_bcs.masked.bam",
         rpm="workup/alignments/{sample}.RNA.all_bcs.bam",
         rpm_repeat="workup/alignments/{sample}.RNAr.all_bcs.bam"
-        # "workup/alignments/{sample}.merged.all_bcs.masked.bam"
     output:
         "workup/clusters/{sample}.clusters"
     log:
@@ -503,9 +570,25 @@ rule make_clusters_merged:
 
 
 
+rule make_clusters_DNA:
+    input:
+        "workup/alignments/{sample}.DNA.all_bcs.masked.bam",
+    output:
+        "workup/clusters/{sample}.clusters"
+    log:
+        "workup/clusters/{sample}.make_clusters.log"
+    conda:
+        "envs/python_dep.yaml"
+    shell:
+        "python {get_clusters} -i {input} -o {output} -n {num_tags} &> {log}"
+
+
+
+
 rule multiqc:
     input:
-        "workup/"
+        #needs to be the last file produced in the pipeline 
+        "workup/clusters/{sample}.clusters"
     output:
         "workup/qc/multiqc.html"
     params:
@@ -574,56 +657,3 @@ rule unique_mappers:
          "workup/alignments/{sample}.Aligned.sortedByCoord.out.unique.bam"
      shell:
          "samtools view -b -q 255 -o {output} {input}"
-
-
-
-#merge RNA DNA bam files
-#rule merge_bam:
-#    input:
-#        dpm="workup/alignments/{sample}.bowtie2.bam",
-#        rpm="workup/alignments/{sample}.hisat2.bam"
-#    threads: 8
-#    output:
-#        "workup/alignments/{sample}.merged.bam"
-#    log:
-#        "workup/logs/{sample}.merge.log"
-#    shell:
-#        "samtools merge -@ {threads} {output} {input.dpm} {input.rpm} &> {log}"
-
-
-
-
-# rule repeat_mask:
-#     input:
-#         "workup/alignments/{sample}.Aligned.sortedByCoord.out.unique.all_bcs.bam"
-#     output:
-#         "workup/alignments/{sample}.Aligned.sortedByCoord.out.unique.all_bcs.masked.bam"
-#     shell:
-#         "{bedtools} intersect -v -a {input} -b {mask} > {output}"
-#
-#
-# rule make_clusters:
-#     input:
-#         "workup/alignments/{sample}.Aligned.sortedByCoord.out.unique.all_bcs.masked.bam",
-#         get_clusters
-#     output:
-#         "workup/clusters/{sample}.clusters"
-#     log:
-#         "workup/clusters/{sample}.make_clusters.log"
-#     shell:
-#         "python {input[1]} -i {input[0]} -o {output} -n 6 &> {log}"
-
-
-
-
-# #rule push_to_s3:
-# #    input:
-# #        expand("workup/clusters/{sample}.clusters", sample=samples),
-# #    output:
-# #        "s3"
-# #    log:
-# #        "s3.log"
-# #    run:
-# #        shell("module add awscli/1.15.27")
-# #        shell("aws s3 sync workup " + s3_target + " &> {log}"),
-# #        shell("touch s3")
