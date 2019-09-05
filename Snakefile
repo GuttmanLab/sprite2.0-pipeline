@@ -575,19 +575,20 @@ rule make_clusters_DNA:
 rule multiqc:
     input:
         #needs to be the last file produced in the pipeline 
-        "workup/clusters/{sample}.clusters" if sprite_type == 'RNA-DNA' else
-        "workup/clusters/{sample}.DNA.clusters"
+        expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES) if sprite_type=="RNA-DNA" else
+        expand("workup/clusters/{sample}.DNA.clusters", sample=ALL_SAMPLES)
     output:
         "workup/qc/multiqc.html"
-    params:
-        ""  # Optional: extra parameters for multiqc.
     log:
         "workup/logs/multiqc.log"
-    wrapper:
-        "0.35.2/bio/multiqc"
+    conda: 
+        "envs/qc.yml"
+    shell: 
+        "multiqc workup -o workup/qc"
 
 
-
+#rule snpsplit_DNA:
+#    input:
 
 
 
