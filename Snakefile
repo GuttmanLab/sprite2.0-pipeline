@@ -22,12 +22,14 @@ configfile: config_path
 
 try:
     bid_config = config['bID']
+    print('Using BarcodeID config', bid_config)
 except:
     bid_config = "workup/config.txt"
     print('Config "bID" not specified, looking for config at:', bid_config)
 
 try:
     num_tags = config['num_tags']
+    print('Using', num_tags, 'tags')
 except:
     num_tags = "5"
     print('Config "num_tags" not specified, using:', num_tags)
@@ -36,6 +38,7 @@ except:
 try:
     assembly = config['assembly']
     assert assembly in ['mm10', 'hg19'], 'Only "mm10" or "hg19" currently supported'
+    print('Using', assembly)
 except:
     print('Config "assembly" not specified, defaulting to "mm10"')
     assembly = 'mm10'
@@ -43,6 +46,7 @@ except:
 try:
     sprite_type = config['type']
     assert sprite_type in ['DNA-DNA', 'RNA-DNA'], 'Only "DNA-DNA" or "RNA-DNA" currently supported'
+    print(sprite_type, 'SPRITE')
 except:
     print('Config "type" not specified, defaulting to "RNA-DNA"')
     sprite_type = 'RNA-DNA'
@@ -55,6 +59,9 @@ try:
     mask = config['mask'][config['assembly']]
 except:
     print('STAR indexes or annotation, mask paths not specified in config.yaml')
+
+try:
+    snp_file = config['snp_file'][config['assembly']]
 
 
 # if assembly == 'mm10':
@@ -104,11 +111,18 @@ DNA_star_params = "--runMode alignReads \
 --genomeLoad NoSharedMemory \
 --outReadsUnmapped Fastx \
 --alignSJDBoverhangMin 5 \
---outSAMtype BAM SortedByCoordinate \
+--outSAMtype BAM Unsorted \
 --limitBAMsortRAM 25000000000 \
 --outSAMattributes All \
 --readFilesCommand zcat \
---twopassMode Basic"
+--twopassMode Basic \
+--alignEndsType EndToEnd"
+#required by SNPsplit
+# --outSAMtype BAM Unsorted
+# --outSAMattributes NH HI NM MD
+# --alignEndsType EndToEnd
+
+
 #--sjdbOverhang 100 \
 #--quantMode GeneCounts \
 
@@ -142,7 +156,7 @@ TRIM_LOG = expand("workup/trimmed/{sample}_{read}.fastq.gz_trimming_report.txt",
 LE_LOG_ALL = ["workup/ligation_efficiency.txt"]
 STAR_ALL_DNA = expand("workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.bam", sample=ALL_SAMPLES)
 MASKED = expand("workup/alignments/{sample}.DNA.all_bcs.masked.bam", sample=ALL_SAMPLES)
-MULTI_QC = ["workup/qc/multiqc.html"]
+MULTI_QC = ["workup/qc/multiqc_report.html"]
 
 #RNA-DNA
 BARCODEID = expand("workup/fastqs/{sample}_{read}.barcoded.fastq.gz", sample = ALL_SAMPLES, read = ["R1", "R2"])
@@ -578,25 +592,33 @@ rule multiqc:
         expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES) if sprite_type=="RNA-DNA" else
         expand("workup/clusters/{sample}.DNA.clusters", sample=ALL_SAMPLES)
     output:
-        "workup/qc/multiqc.html"
+        "workup/qc/multiqc_report.html"
     log:
         "workup/logs/multiqc.log"
     conda: 
-        "envs/qc.yml"
+        "envs/qc.yaml"
     shell: 
         "multiqc workup -o workup/qc"
 
 
-#rule snpsplit_DNA:
-#    input:
-
+# rule snpsplit_DNA:
+#     input:
+#         "workup/alignments/{sample}.DNA.all_bcs.bam"
+#     output:
+#         "workup/alignments/{sample}.DNA.all_bcs.allele_flagged.bam"
+#     log:
+#         "workup/logs/snpsplit.log"
+#     conda:
+#         "envs/snpsplit.yaml"
+#     shell:
+#         "SNPsplit --snp_file {snp_file} {input} &> {log}"
 
 
 
 
 #from clusterflow pipeline
 # we are currently using a very high penalty score for soft-clipping (--sp 1000,1000)
-#because Hisat2 seems to soft-clip even when it shoudl run in --end-to-end mode
+#because Hisat2 seems to soft-clip even when it should run in --end-to-end mode
 # we are also filtering out unmapped reads (-F 4), or reads where the mate was unmapped (-F 8)
 # we are also filtering non-primary alignments (-F 256)
 #filter on mapq score of 20 (Skip alignments with MAPQ smaller than 20)

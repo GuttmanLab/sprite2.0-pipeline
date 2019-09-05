@@ -6,6 +6,8 @@ type: "RNA-DNA"
 assembly: "mm10"
 #Number of barcodes used (this includes DPM/RPM for RNA-DNA)
 num_tags: "5"
+#Cell type for SNPsplit
+cell: "psm44"
 #Location of STAR aligner indexes
 star_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/star"
@@ -24,5 +26,9 @@ mask:
 #Other indexes currently not used
 bowtie2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6"
+    psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/CAST_EiJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_CAST_EiJ_129S1_SvImj_N-masked"
+    psm33: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/C57BL_6NJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_C57BL_6NJ_129S1_SvImJ_N-masked"
 hisat2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6"
+snp_file:
+    mm10: /groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_SPRET_EiJ_SNPs_C57BL_6NJ_reference.based_on_GRCm38.txt
