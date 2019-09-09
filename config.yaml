@@ -6,23 +6,31 @@ type: "RNA-DNA"
 assembly: "mm10"
 #Number of barcodes used (this includes DPM/RPM for RNA-DNA)
 num_tags: "5"
-#Cell type for SNPsplit
+#Cell type for SNPsplit "psm44" or "psm33"
 cell: "psm44"
+#Run SNPsplit
+snpsplit: True
+#Aligned for DNA "bowtie2" or "star", if running snpsplit the default is bowtie2
+dna_aligner: "bowtie2"
 #Location of STAR aligner indexes
 star_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/star"
     hg19: "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/star"
 star_repeat_index:
     mm10: "/groups/guttman/Peter/genomes/ncRNA/star"
-    hg19: "/groups/guttman/dmariani/Hs-45S"
+    hg19: "/groups/guttman/Peter/genomes/GRCh38/repeats/star"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/star"
 #Annotation GTF file used for featureCounts
 anno_gtf:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"
     hg19: "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19/gencode.v19.annotation.gtf"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/Homo_sapiens.GRCh38.97.gtf.gz"
 #Repeat mask used for filtering DNA contacts
 mask:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
     hg19: "/groups/guttman/genomes/combinations/hg19_mm9/masks/hg19-mm9.gatk35-and-rmsk140.bed"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/hg38_blacklist_rmsk140millidev.bed"
 #Other indexes currently not used
 bowtie2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6"
