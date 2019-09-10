@@ -30,8 +30,8 @@ anno_gtf:
     hg38: "/groups/guttman/Peter/genomes/GRCh38/Homo_sapiens.GRCh38.97.gtf.gz"
 #Annotation GTF of TE repeats from Hammell lab used for featureCounts
 anno_repeats_gtf:
-    mm10:
-    hg38:
+    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38_rmsk_TE.gtf.gz"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38_rmsk_TE.gtf.gz"
 #Repeat mask used for filtering DNA contacts
 mask:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
