@@ -1,5 +1,6 @@
 channels:
   - bioconda
 dependencies:
-  - pysam=0.15.0.1
+  - hisat2=2.1.0
   - samtools
+  - python=3.6

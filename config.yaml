@@ -9,9 +9,11 @@ num_tags: "5"
 #Cell type for SNPsplit "psm44" or "psm33"
 cell: "psm44"
 #Run SNPsplit
-snpsplit: True
+snpsplit: "True"
 #Aligned for DNA "bowtie2" or "star", if running snpsplit the default is bowtie2
 dna_aligner: "bowtie2"
+#Aligned for RNA "hisat2" or "star"
+rna_aligner: "hisat2"
 #Location of STAR aligner indexes
 star_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/star"
@@ -26,6 +28,10 @@ anno_gtf:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"
     hg19: "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19/gencode.v19.annotation.gtf"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/Homo_sapiens.GRCh38.97.gtf.gz"
+#Annotation GTF of TE repeats from Hammell lab used for featureCounts
+anno_repeats_gtf:
+    mm10:
+    hg38:
 #Repeat mask used for filtering DNA contacts
 mask:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
@@ -39,4 +45,5 @@ bowtie2_index:
 hisat2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6"
 snp_file:
-    mm10: /groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_SPRET_EiJ_SNPs_C57BL_6NJ_reference.based_on_GRCm38.txt
+    psm33: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_129S1_SvImJ_SNPs_C57BL_6NJ_reference.based_on_GRCm38.txt"
+    psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_129S1_SvImJ_SNPs_CAST_EiJ_reference.based_on_GRCm38.txt"

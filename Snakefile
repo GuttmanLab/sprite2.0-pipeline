@@ -53,62 +53,53 @@ except:
     print('Config "type" not specified, defaulting to "RNA-DNA"')
     sprite_type = 'RNA-DNA'
 
-
 try:
-    star_index = config['star_index'][config['assembly']]
-    star_repeat_index = config['star_repeat_index'][config['assembly']]
     anno_gtf = config['anno_gtf'][config['assembly']]
+    anno_repeats_gtf = config['anno_repeats_gtf'][config['assembly']]
     mask = config['mask'][config['assembly']]
 except:
-    print('STAR indexes or annotation, mask paths not specified in config.yaml')
+    print('Annotation or mask path not specified in config.yaml')
     sys.exit() #no default, exit
 
 try:
     run_snpsplit = config['snpsplit']
+    print('Running SNPsplit:', run_snpsplit)
+    if run_snpsplit == 'True':
+        snp_file = config['snp_file'][config['cell']]
 except:
     print('SNPsplit not specified in config, will not run')
     run_snpsplit = False
 
 try:
-    dna_aligner = config['dna_aligner']
-    if run_snpsplit == "True" & dna_aligner == "star":
+    DNA_aligner = config['dna_aligner']
+    if run_snpsplit == 'True' & DNA_aligner == 'star':
         print('Running SNPsplit, will use Bowtie2')
-        dna_aligner = "bowtie2"
+        DNA_aligner = "bowtie2"
+    print('Using Bowtie2 for DNA alignment')
 except:
     print('DNA aligner not specified, defaulting to STAR')
-    dna_aligner = "star"
+    DNA_aligner = 'star'
 
 try:
-    if dna_aligner == "bowtie2":
+    if DNA_aligner == 'star':
+        star_index = config['star_index'][config['assembly']]
+        star_repeat_index = config['star_repeat_index'][config['assembly']]
+except:
+    print('STAR indexes path not specified in config.yaml')
+    sys.exit() #no default, exit
+
+try:
+    if DNA_aligner == 'bowtie2':
         if run_snpsplit == 'True':
-            bowtie2_index = config['bowtie2_index']['cell']
+            bowtie2_index = config['bowtie2_index'][config['cell']]
         else:
-            bowtie2_index = config['bowtie2_index']['assembly']
+            bowtie2_index = config['bowtie2_index'][config['assembly']]
+        hisat2_index = config['hisat2_index'][config]
 except:
     print('Bowtie2 index not specified in config.yaml')
     sys.exit() #no default, exit
 
-# try:
-#     snp_file = config['snp_file'][config['assembly']]
-
-
-# if assembly == 'mm10':
-#     star_index = "/groups/guttman/Peter/genomes/GRCm38.p6/star"
-#     star_repeat_index = "/groups/guttman/Peter/genomes/ncRNA/star"
-#     hisat2_index = "/groups/guttman/Peter/genomes/GRCm38.p6"
-#     bowtie2_index = "/groups/guttman/Peter/genomes/GRCm38.p6"
-#     anno_gtf = "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"
-#     mask = "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
-# elif assembly == 'hg19':
-#     star_index = "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19"
-#     star_repeat_index = "/groups/guttman/dmariani/Hs-45S"
-#     anno_gtf = "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19/gencode.v19.annotation.gtf"
-#     mask = "/groups/guttman/genomes/combinations/hg19_mm9/masks/hg19-mm9.gatk35-and-rmsk140.bed"
-
 #human reference has been generated with STAR 2.5.3a!
-
-
-
 
 RNA_star_params = "--runMode alignReads \
 --outFilterMultimapNmax 50 \
@@ -150,20 +141,8 @@ DNA_star_params = "--runMode alignReads \
 # --outSAMattributes NH HI NM MD
 # --alignEndsType EndToEnd
 
-
 #--sjdbOverhang 100 \
 #--quantMode GeneCounts \
-
-
-
-
-# rscript = "/central/software/R/3.5.0/bin/Rscript"
-# cluster_plot = "/groups/guttman/software/sprite-pipeline/r/get_cluster_size_distribution.r"
-
-
-#import json
-#import snakemake
-import os
 
 
 #get all samples from fastq Directory using the fastq2json.py scripts, then just
@@ -187,11 +166,21 @@ TRIM_RD = expand("workup/trimmed/{sample}_R1_val_1_RDtrim.fq.gz", sample = ALL_S
 LE_LOG_ALL = ["workup/ligation_efficiency.txt"]
 MASKED = expand("workup/alignments/{sample}.DNA.all_bcs.masked.bam", sample=ALL_SAMPLES)
 MULTI_QC = ["workup/qc/multiqc_report.html"]
+
 #If aligning to N-masked genome for SNPsplit
-if dna_aligner == 'star':
-    DNA_ALIGN = expand("workup/alignments/{sample}.DNA.Aligned.out.bam", sample=ALL_SAMPLES)
-elif dna_aligner == 'bowtie2':
-    DNA_ALIGN = expand("workup/alignments/{sample}.bowtie2.mapq20.bam", sample=ALL_SAMPLES)
+#STAR alignment
+STAR_DNA_ALIGN = expand("workup/alignments/{sample}.DNA.Aligned.out.mapq20.bam",
+                    sample=ALL_SAMPLES)
+
+#Bowtie2 aligment
+Bt2_DNA_ALIGN = expand("workup/alignments/{sample}.DNA.bowtie2.mapq20.bam", 
+                       sample=ALL_SAMPLES)
+SNPSPLIT_DNA = expand("workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam", 
+                      sample=ALL_SAMPLES)
+Bt2_TAG_ALL = expand("workup/alignments/{sample}.RNAr.bowtie2.mapq20.tag.bam", 
+                       sample=ALL_SAMPLES)
+Bt2_RNAr = expand("workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam", 
+                  sample=ALL_SAMPLES)
 
 
 #TODO: align repeats with Bowtie2
@@ -200,23 +189,36 @@ BARCODEID = expand("workup/fastqs/{sample}_{read}.barcoded.fastq.gz", sample = A
                    read = ["R1", "R2"])
 RPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz", sample=ALL_SAMPLES)
 DPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_SAMPLES)
-STAR_ALL_RNAr = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam", 
-                       sample=ALL_SAMPLES)
-STAR_RNA_UNMAP = expand("workup/alignments/{sample}.RNAr.unmapped.fastq.gz", sample=ALL_SAMPLES)
-STAR_ALL_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam", 
-                      sample=ALL_SAMPLES)
-MAPQ_ALL = expand(["workup/alignments/{sample}.DNA.Aligned.out.mapq20.bam",
-           "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
-           "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam"], 
-           sample=ALL_SAMPLES)
 BCS_ALL = expand(["workup/alignments/{sample}.DNA.all_bcs.bam",
           "workup/alignments/{sample}.RNA.all_bcs.bam",
           "workup/alignments/{sample}.RNAr.all_bcs.bam"], sample=ALL_SAMPLES)
-TAG_ALL = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam", 
-                 sample=ALL_SAMPLES)
-ANNO_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.bam", 
-                  sample=ALL_SAMPLES)
+
 CLUSTERS = expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES)
+
+#Hisat2 alignment
+Ht2_RNA_ALIGN = expand(["workup/alignments/{sample}.RNA.hisat2.mapq20.bam",
+                        "workup/alignments/{sample}.RNA.hisat2.unmapped.bam"] 
+                        sample=ALL_SAMPLES)
+Ht2_ANNO_RNA = expand(["workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.bam",
+                      "workup/alignments/{sample}.RNAr.hisat2.mapq20.bam.featureCounts.bam"],
+                  sample=ALL_SAMPLES)
+
+#STAR alignment
+STAR_ALL_RNAr = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam", 
+                       sample=ALL_SAMPLES)
+STAR_RNA_UNMAP = expand("workup/alignments/{sample}.RNAr.unmapped.fastq.gz", sample=ALL_SAMPLES)
+STAR_ALL_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam", 
+                      sample=ALL_SAMPLES)
+STAR_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam", 
+                   sample=ALL_SAMPLES)
+STAR_RNAr = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam", 
+                  sample=ALL_SAMPLES)
+STAR_TAG_ALL = expand("workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam", 
+                 sample=ALL_SAMPLES)
+STAR_ANNO_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.bam", 
+                  sample=ALL_SAMPLES)
+
+
 
 #DNA-DNA
 BARCODEID_DNA = expand("workup/fastqs/{sample}_{read}.barcoded_dpm.fastq.gz", 
@@ -237,15 +239,22 @@ MAPQ_DNA = expand("workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam", s
 
 # if assembly == 'mm10':
 if sprite_type == 'RNA-DNA':
-    rule all:
-        input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + RPM_ALL +
-            DPM_ALL + DNA_ALIGN + STAR_ALL_RNA + STAR_ALL_RNAr + 
-            STAR_RNA_UNMAP + MAPQ_ALL + TAG_ALL + BCS_ALL + ANNO_RNA + MASKED + 
-            CLUSTERS + MULTI_QC #+ OTHER_ALL
+    if DNA_aligner == 'star':
+        rule all:
+            input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + RPM_ALL +
+                DPM_ALL + STAR_DNA_ALIGN + STAR_ALL_RNA + STAR_ALL_RNAr + STAR_ANNO_RNA +
+                STAR_RNA_UNMAP + STAR_TAG_ALL + BCS_ALL + MASKED + 
+                CLUSTERS + MULTI_QC
+    else:
+        rule all:
+            input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID + LE_LOG_ALL + RPM_ALL +
+                DPM_ALL + Bt2_DNA_ALIGN + Ht2_RNA_ALIGN + Bt2_TAG_ALL + BCS_ALL + 
+                Ht2_ANNO_RNA + MASKED + CLUSTERS + MULTI_QC
 elif sprite_type == 'DNA-DNA':
+    #just use bowtie2 here
     rule all:
         input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID_DNA + LE_LOG_ALL + BARCODEID_DNA +
-                CLUSTERS_DNA + DNA_ALIGN + MULTI_QC + MAPQ_DNA
+               Bt2_DNA_ALIGN + CLUSTERS_DNA + MULTI_QC
 # elif assembly == 'hg19':
 #     if sprite_type == 'RNA-DNA':
 #         rule all:
@@ -264,7 +273,7 @@ onerror:
 
 
 ####################################################################################################
-#Rules
+#Trimming and barcode identification
 ####################################################################################################
 
 #Trim adaptors
@@ -375,8 +384,9 @@ rule split_rpm_dpm:
     shell:
         "python {split_fq} --r1 {input} &> {log}"
 
-
-
+############################################################################################
+#DNA alignment
+############################################################################################
 #MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
 #-F: Do not output alignments with any bits set in INT present in the FLAG field
 rule bowtie2_align:
@@ -396,21 +406,32 @@ rule bowtie2_align:
         --phred33 \
         -x {bowtie2_index} \
         -U {input.fq} | \
-        samtools view -bSq 20 -F 4 -F 256 - > {output}) &> {log}"
+        samtools view -bq 20 -F 4 -F 256 - > {output}) &> {log}"
 
 
-# rule snpsplit:
-#     input:
-#         "workup/alignments/{sample}.DNA.bowtie2.mapq20.bam"
-#     output:
-#         "workup/alignments/{sample}.DNA.bowtie2.mapq20.bam"
-
-
+rule snpsplit:
+    input:
+        "workup/alignments/{sample}.DNA.bowtie2.mapq20.bam"
+    output:
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam",
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.genome1.bam",
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.genome2.bam",
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.SNPsplit_report.txt",
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.SNPsplit_sort.txt",
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.unassigned.bam"
+    log:
+        "workup/logs/{sample}.snpsplit.log"
+    conda:
+        "envs/snpsplit.yaml"
+    shell:
+        "SNPsplit --snp_file {snp_file} -o workup/SNPsplit/ {input} &> {log}"
+    
 
 rule star_align_dna:
      input:
          fq = "workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz"
      output:
+         "workup/alignments/{sample}.DNA.Aligned.out.mapq20.bam",
          "workup/alignments/{sample}.DNA.Aligned.out.bam",
          "workup/alignments/{sample}.DNA.Log.final.out",
          "workup/alignments/{sample}.DNA.Log.out",
@@ -421,7 +442,8 @@ rule star_align_dna:
          "workup/logs/{sample}.DNA.star.log"
      threads: 10
      conda:
-        'envs/star.yaml' if assembly == 'mm10' else 'envs/star_hg19.yaml'
+        'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
+        'envs/star_hg19.yaml'
      shell:
          """
          STAR {DNA_star_params} \
@@ -430,42 +452,18 @@ rule star_align_dna:
          --readFilesIn {input.fq} \
          --outFileNamePrefix workup/alignments/{wildcards.sample}.DNA. &> {log}
 
-         mv workup/alignments/{wildcards.sample}.DNA.Unmapped.out.mate1 workup/alignments/{wildcards.sample}.DNA.unmapped.fastq
+         mv workup/alignments/{wildcards.sample}.DNA.Unmapped.out.mate1 \
+             workup/alignments/{wildcards.sample}.DNA.unmapped.fastq
 
          gzip workup/alignments/{wildcards.sample}.DNA.unmapped.fastq
+
+         samtools view -bq 20 {wildcards.sample}.DNA.Aligned.out.bam > \
+             workup/alignments/{wildcards.sample}.DNA.Aligned.out.mapq20.bam
          """
 
-
-
-#Align RNA with STAR to repeats
-# rule star_align_rna:
-#      input:
-#          fq = "workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
-#      output:
-#          "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam",        
-#          "workup/alignments/{sample}.RNAr.Log.final.out",
-#          "workup/alignments/{sample}.RNAr.Log.out",
-#          "workup/alignments/{sample}.RNAr.Log.progress.out",
-#          "workup/alignments/{sample}.RNAr.SJ.out.tab",
-#          "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
-#      log:
-#          "workup/logs/{sample}.RNAr.star.log"
-#      threads: 10
-#      conda:
-#          'envs/rna_repeats.yaml'
-#      shell:
-#          '''
-#          STAR {RNA_star_params} \
-#          --runThreadN {threads} \
-#          --genomeDir {star_repeat_index} \
-#          --readFilesIn {input.fq} \
-#          --outFileNamePrefix workup/alignments/{wildcards.sample}.RNAr. &> {log}
-
-#          mv workup/alignments/{wildcards.sample}.RNAr.Unmapped.out.mate1 workup/alignments/{wildcards.sample}.RNAr.unmapped.fastq
-
-#          gzip workup/alignments/{wildcards.sample}.RNAr.unmapped.fastq
-
-#          '''
+############################################################################################
+#RNA alignment
+############################################################################################
 
 
 #Align RNA with STAR to the genome first, annotate repeats, 
@@ -475,6 +473,7 @@ rule star_align_rna:
         #  fq = "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
          fq = "workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
      output:
+         "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
          "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam",
          "workup/alignments/{sample}.RNA.Log.final.out",
          "workup/alignments/{sample}.RNA.Log.out",
@@ -485,7 +484,8 @@ rule star_align_rna:
          "workup/logs/{sample}.RNA.star.log"
      threads: 10
      conda:
-        'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 'envs/star_hg19.yaml'
+        'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
+        'envs/star_hg19.yaml'
      shell:
          '''
          STAR {RNA_star_params} \
@@ -494,98 +494,104 @@ rule star_align_rna:
          --readFilesIn {input.fq} \
          --outFileNamePrefix workup/alignments/{wildcards.sample}.RNA. &> {log}
 
-         mv workup/alignments/{wildcards.sample}.RNA.Unmapped.out.mate1 workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
+         mv workup/alignments/{wildcards.sample}.RNA.Unmapped.out.mate1 \
+             workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
 
          gzip workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
+
+         samtools view -bq 20 {wildcards.sample}.RNA.Aligned.sortedByCoord.out.bam > \
+             workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam
          '''
 
 
-#Align RNA with Bowtie2 to repeats
-#MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
-#-F: Do not output alignments with any bits set in INT present in the FLAG field
-rule bowtie2_align_rna_repeats:
-     input:
-        fq = "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
-     output:
-         "workup/alignments/{sample}.RNAr.bowtie2.bam",        
-     log:
-         "workup/logs/{sample}.RNAr.bowtie2.log"
-     threads: 10
-     conda:
-          "envs/bowtie2.yaml"
-     shell:
-         "(bowtie2 \
+#from clusterflow pipeline
+# we are currently using a very high penalty score for soft-clipping (--sp 1000,1000)
+#because Hisat2 seems to soft-clip even when it should run in --end-to-end mode
+# we are also filtering out unmapped reads (-F 4), or reads where the mate was unmapped (-F 8)
+# we are also filtering non-primary alignments (-F 256)
+#filter on mapq score of 20 (Skip alignments with MAPQ smaller than 20)
+rule hisat2_align:
+    input:
+        fq="workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
+    output:
+        all_reads=temp("workup/alignments/{sample}.RNA.hisat2.bam"),
+        low_mapq=temp("workup/alignments/{sample}.RNA.hisat2.lowmapq.bam"),,
+        unmapped=temp("workup/alignments/{sample}.RNA.hisat2.unmapped.bam"),
+        mapped="workup/alignments/{sample}.RNA.hisat2.mapq20.bam",
+        final_out="workup/alignments/{sample}.RNA.hisat2.unmapped.lowmq.bam"
+    threads: 8
+    conda:
+        "envs/hisat2.yaml"
+    log:
+        "workup/logs/{sample}.hisat2.log"
+    shell:
+        #--no-mixed \
+        # --no-discordant $splices \
+        '''
+        (hisat2 --sp 1000,1000 \
         -p 8 \
         -t \
         --phred33 \
-        -x {bowtie2_index} \
+        -x {hisat2_index} \
         -U {input.fq} | \
-        samtools view -bSq 20 -F 4 -F 256 - > {output}) &> {log}"
-
-
-
-
-
-
-
-
-
-rule mapq_filter_RNA_DNA:
-    input:
-        dpm="workup/alignments/{sample}.DNA.Aligned.out.bam" if dna_aligner == 'star' else 
-        "workup/alignments/{sample}.DNA.bowtie2.bam",
-        rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam",
-        rpm_repeat="workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam"
-    output:
-        dpm="workup/alignments/{sample}.DNA.Aligned.out.mapq20.bam"if dna_aligner == 'star' else 
-        "workup/alignments/{sample}.DNA.bowtie2.bam",
-        rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
-        rpm_repeat="workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam"
-    log:
-        "workup/logs/{sample}.DNA_mapq.log"
-        "workup/logs/{sample}.RNA_mapq.log"
-        "workup/logs/{sample}.RNAr_mapq.log"
-    conda:
-        "envs/samtools.yaml"
-    shell:
-        '''
-        samtools view -b -q 20 -o {output.dpm} {input.dpm}
-        samtools view -b -q 20 -o {output.rpm} {input.rpm}
-        samtools view -b -q 20 -o {output.rpm_repeat} {input.rpm_repeat}
-        '''
-
-rule mapq_filter_DNA_DNA:
-    input:
-        dpm="workup/alignments/{sample}.DNA.Aligned.out.bam"
-    output:
-        dpm="workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam"
-    log:
-        "workup/logs/{sample}.DNA_mapq.log"
-    conda:
-        "envs/samtools.yaml"
-    shell:
-        '''
-        samtools view -b -q 20 -o {output.dpm} {input.dpm}
+        samtools view -b -F 256 - > {output.all_reads}) &> {log}
+        
+        samtools view -b -F 4 {output.all_reads} > {output.mapped}
+        samtools view -bq 20 -F 4 {output.all_reads} > {output.lowmapq}
+        samtools view -b -f 4 {output.all_reads} > {output.unmapped}
+        samtools merge {output.final_out}
         '''
 
 
-rule add_tags:
-    input:
-        "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam"
-    output:
-        "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam"
-    log:
-        "workup/logs/{sample}.RNAr.tag.log"
-    conda:
-        'envs/rna_repeats.yaml'
-    shell:'''
-        samtools index {input}
 
-        python {atttb} -i {input} -o {output}
-        '''
 
+# rule mapq_filter_RNA:
+#     input:
+#         rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam",
+#         rpm_repeat="workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam"
+#     output:
+#         rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
+#         rpm_repeat="workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam"
+#     log:
+#         "workup/logs/{sample}.RNA_mapq.log"
+#         "workup/logs/{sample}.RNAr_mapq.log"
+#     conda:
+#         "envs/samtools.yaml"
+#     shell:
+#         '''
+#         samtools view -b -q 20 -o {output.rpm} {input.rpm}
+#         samtools view -b -q 20 -o {output.rpm_repeat} {input.rpm_repeat}
+#         '''
 
 rule annotate_rna:
+    input:
+        "workup/alignments/{sample}.RNA.hisat2.mapq20.bam"
+    threads: 8
+    output:
+        bam_rna="workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.bam",
+        counts_rna="workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.txt",
+        bam_rrna="workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.bam",
+        counts_rrna="workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.txt"
+    log:
+        "workup/logs/{sample}.anno.log"
+    conda:
+        "envs/annotate_rna.yaml"
+    shell:
+        '''
+        featureCounts -T {threads} -t gene \
+        -R BAM -M -s 1 \
+        -g gene_name -a {anno_gtf} -o {output.counts_rna} \
+        {input}
+
+        featureCounts -T {threads} -t gene \
+        -R BAM -M -s 1 \
+        -g gene_name -a {anno_repeats_gtf} -o {output.counts_rrna} \
+        {input}
+
+        '''
+
+
+rule annotate_rna_star:
     input:
         "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam"
     threads: 8
@@ -610,26 +616,151 @@ rule annotate_rna:
         {input}"
 
 
+############################################################################################
+#Repeats alignment
+############################################################################################
+#Align RNA with Bowtie2 to repeats
+#MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
+#-F: Do not output alignments with any bits set in INT present in the FLAG field
+rule bowtie2_align_rna_repeats:
+     input:
+        fq = "workup/alignments/{sample}.RNA.hisat2.unmapped.lowmq.bam"
+     output:
+         "workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam",        
+     log:
+         "workup/logs/{sample}.RNAr.bowtie2.log"
+     threads: 10
+     conda:
+          "envs/bowtie2.yaml"
+     shell:
+         "(bowtie2 \
+        -p 8 \
+        -t \
+        --phred33 \
+        -x {bowtie2_index} \
+        -U {input.fq} | \
+        samtools view -bSq 20 -F 4 -F 256 - > {output}) &> {log}"
 
-#merge RNA DNA bam files
-# rule merge_bam_star:
-#     input:
-#         dpm="workup/alignments/{sample}.DNA.Aligned.sortedByCoord.out.bam",
-#         rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam.featureCounts.bam",
-#         rpm_repeat="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.tag.bam"
-#     threads: 10
-#     output:
-#         dpm=temp("workup/alignments/{sample}.tempDPM.unique.bam"),
-# 	    # rpm=temp("workup/alignments/{sample}.tempRPM.unique.bam"),
-# 	    merged="workup/alignments/{sample}.merged.bam"
-#     log:
-#         "workup/logs/{sample}.merge.log"
-#     conda:
-#         "envs/samtools.yaml"
-#     shell:'''
-#         {samtools} view -b -q 255 -o {output.dpm} {input.dpm}
-#         {samtools} merge -@ {threads} {output.merged} {output.dpm} {input.rpm} {input.rpm_repeat} &> {log}
-#         '''
+
+#Align RNA with STAR to repeats
+rule star_align_rna:
+     input:
+         fq = "workup/alignments/{sample}.RNA.unmapped.fastq.gz"
+     output:
+         "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.bam",        
+         "workup/alignments/{sample}.RNAr.Log.final.out",
+         "workup/alignments/{sample}.RNAr.Log.out",
+         "workup/alignments/{sample}.RNAr.Log.progress.out",
+         "workup/alignments/{sample}.RNAr.SJ.out.tab",
+         "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
+     log:
+         "workup/logs/{sample}.RNAr.star.log"
+     threads: 10
+     conda:
+         'envs/star.yaml'
+     shell:
+         '''
+         STAR {RNA_star_params} \
+         --runThreadN {threads} \
+         --genomeDir {star_repeat_index} \
+         --readFilesIn {input.fq} \
+         --outFileNamePrefix workup/alignments/{wildcards.sample}.RNAr. &> {log}
+
+         mv workup/alignments/{wildcards.sample}.RNAr.Unmapped.out.mate1 workup/alignments/{wildcards.sample}.RNAr.unmapped.fastq
+
+         gzip workup/alignments/{wildcards.sample}.RNAr.unmapped.fastq
+
+         samtools view -bq 20 {wildcards.sample}.RNAr.Aligned.sortedByCoord.out.bam > \
+             workup/alignments/{wildcards.sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam
+         '''
+
+
+#Add chromosome of repeats as tag the featureCounts uses
+rule add_tags_star:
+    input:
+        "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam"
+    output:
+        "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam"
+    log:
+        "workup/logs/{sample}.RNAr.star.tag.log"
+    conda:
+        'envs/rna_repeats.yaml'
+    shell:'''
+        samtools index {input}
+
+        python {atttb} -i {input} -o {output}
+        '''
+
+#Add chromosome of repeats as tag the featureCounts uses
+rule add_tags_bowtie2:
+    input:
+        "workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam"
+    output:
+        "workup/alignments/{sample}.RNAr.bowtie2.mapq20.tag.bam"
+    log:
+        "workup/logs/{sample}.RNAr.bowtie2.tag.log"
+    conda:
+        'envs/rna_repeats.yaml'
+    shell:'''
+        samtools index {input}
+
+        python {atttb} -i {input} -o {output}
+        '''
+
+
+
+############################################################################################
+#DNA-DNA only 
+############################################################################################
+
+
+rule mapq_filter_DNA_DNA:
+    input:
+        dpm="workup/alignments/{sample}.DNA.Aligned.out.bam"
+    output:
+        dpm="workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam"
+    log:
+        "workup/logs/{sample}.DNA_mapq.log"
+    conda:
+        "envs/samtools.yaml"
+    shell:
+        '''
+        samtools view -b -q 20 -o {output.dpm} {input.dpm}
+        '''
+
+
+
+rule all_barcodes_DNA_DNA:
+    input:
+        "workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam"
+    output:
+        "workup/alignments/{sample}.DNAonly.all_bcs.bam"
+    log:
+        "workup/logs/{sample}.DNA_bcs.log"
+    conda:
+        "envs/python_dep.yaml"
+    shell:
+        '''
+        python {all_tags} -i {input} -o {output} --assembly {assembly} &> {log}
+        '''
+
+
+rule make_clusters_DNA:
+    input:
+        "workup/alignments/{sample}.DNA.all_bcs.masked.bam",
+    output:
+        "workup/clusters/{sample}.DNA.clusters"
+    log:
+        "workup/clusters/{sample}.make_clusters.log"
+    conda:
+        "envs/python_dep.yaml"
+    shell:
+        "python {get_clusters} -i {input} -o {output} -n {num_tags} &> {log}"
+
+
+############################################################################################
+#RNA-DNA only 
+############################################################################################
 
 rule all_barcodes_RNA_DNA:
     input:
@@ -657,26 +788,10 @@ rule all_barcodes_RNA_DNA:
         '''
 
 
-rule all_barcodes_DNA_DNA:
-    input:
-        "workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam"
-    output:
-        "workup/alignments/{sample}.DNAonly.all_bcs.bam"
-    log:
-        "workup/logs/{sample}.DNA_bcs.log"
-    conda:
-        "envs/python_dep.yaml"
-    shell:
-        '''
-        python {all_tags} -i {input} -o {output} --assembly {assembly} &> {log}
-        '''
-
-
 
 
 rule repeat_mask:
     input:
-        # "workup/alignments/{sample}.merged.all_bcs.bam"{samtools} view -b -q 255 -o {output.dpm} {input.dpm}
         "workup/alignments/{sample}.DNA.all_bcs.bam" if sprite_type == 'RNA-DPM' else
         "workup/alignments/{sample}.DNAonly.all_bcs.bam"
     output:
@@ -704,20 +819,6 @@ rule make_merged_clusters:
 
 
 
-rule make_clusters_DNA:
-    input:
-        "workup/alignments/{sample}.DNA.all_bcs.masked.bam",
-    output:
-        "workup/clusters/{sample}.DNA.clusters"
-    log:
-        "workup/clusters/{sample}.make_clusters.log"
-    conda:
-        "envs/python_dep.yaml"
-    shell:
-        "python {get_clusters} -i {input} -o {output} -n {num_tags} &> {log}"
-
-
-
 
 rule multiqc:
     input:
@@ -732,6 +833,8 @@ rule multiqc:
         "envs/qc.yaml"
     shell: 
         "multiqc workup -o workup/qc"
+
+
 
 
 # rule snpsplit_DNA:
@@ -749,38 +852,16 @@ rule multiqc:
 
 
 
-#from clusterflow pipeline
-# we are currently using a very high penalty score for soft-clipping (--sp 1000,1000)
-#because Hisat2 seems to soft-clip even when it should run in --end-to-end mode
-# we are also filtering out unmapped reads (-F 4), or reads where the mate was unmapped (-F 8)
-# we are also filtering non-primary alignments (-F 256)
-#filter on mapq score of 20 (Skip alignments with MAPQ smaller than 20)
-rule hisat2_align:
-    input:
-        fq="workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
-    output:
-        "workup/alignments/{sample}.hisat2.bam"
-    threads: 8
-    log:
-        "workup/logs/{sample}.hisat2.log"
-    shell:
-        #--no-mixed \
-        # --no-discordant $splices \
-        "(hisat2 --sp 1000,1000 \
-        -p 8 \
-        -t \
-        --phred33 \
-        -x {hisat2_index} \
-        -U {input.fq} | \
-        samtools view -bSq 20 -F 4 -F 256 - > {output}) &> {log}"
+
+
 #low alignment rate most likely due to not adaptor trimming and not allowing soft-clipping
 
 
 # unique mappers all have 255 MAPQ score
-rule unique_mappers:
-     input:
-         "workup/alignments/{sample}.Aligned.sortedByCoord.out.bam"
-     output:
-         "workup/alignments/{sample}.Aligned.sortedByCoord.out.unique.bam"
-     shell:
-         "samtools view -b -q 255 -o {output} {input}"
+# rule unique_mappers:
+#      input:
+#          "workup/alignments/{sample}.Aligned.sortedByCoord.out.bam"
+#      output:
+#          "workup/alignments/{sample}.Aligned.sortedByCoord.out.unique.bam"
+#      shell:
+#          "samtools view -b -q 255 -o {output} {input}"
