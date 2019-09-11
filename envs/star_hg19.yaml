@@ -1,4 +1,6 @@
 channels:
   - bioconda
+  - anaconda
 dependencies:
   - star=2.5.3a
+  - pigz

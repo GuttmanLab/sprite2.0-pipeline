@@ -1,5 +1,7 @@
 channels:
   - bioconda
+  - anaconda
 dependencies:
   - star=2.7.0d
   - samtools
+  - pigz
