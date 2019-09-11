@@ -57,6 +57,7 @@ try:
     anno_gtf = config['anno_gtf'][config['assembly']]
     anno_repeats_gtf = config['anno_repeats_gtf'][config['assembly']]
     mask = config['mask'][config['assembly']]
+    exon_intron_gtf = config['exon_intron_gtf'][config['assembly']]
 except:
     print('Annotation or mask path not specified in config.yaml')
     sys.exit() #no default, exit
@@ -77,7 +78,7 @@ except:
     print('DNA aligner not specified, defaulting to bowtie2')
     DNA_aligner = 'bowtie2'
 
-if run_snpsplit == 'True' & DNA_aligner == 'star':
+if run_snpsplit == 'True' and DNA_aligner == 'star':
         print('Running SNPsplit, will use Bowtie2')
         DNA_aligner = "bowtie2"
 
@@ -257,8 +258,8 @@ if sprite_type == 'RNA-DNA':
     elif DNA_aligner == 'bowtie2' and RNA_aligner == 'hisat2':
         rule all:
             input: ALL_FASTQ + TRIM + TRIM_LOG + TRIM_RD + BARCODEID + LE_LOG_ALL + RPM_ALL +
-                DPM_ALL + Bt2_DNA_ALIGN + Ht2_RNA_ALIGN + Bt2_TAG_ALL + BCS_ALL + 
-                Ht2_ANNO_RNA + MASKED + CLUSTERS + MULTI_QC
+                DPM_ALL + Bt2_DNA_ALIGN + Ht2_RNA_ALIGN + Bt2_TAG_ALL +  
+                Ht2_ANNO_RNA + BCS_ALL + MASKED + CLUSTERS + MULTI_QC
     else:
         print('Combination not configured yet')
         sys.exit()
@@ -325,10 +326,11 @@ rule adaptor_trimming_pe:
 # DPM5bot95-G12  /5Phos/TGACTTGTCATGTCTTCCGATCTACCCTCGATT
 rule cutadapt:
     input:
-        ["workup/trimmed/{sample}_R1_val_1.fq.gz", "workup/trimmed/{sample}_R2_val_2.fq.gz"
+        ["workup/trimmed/{sample}_R1_val_1.fq.gz", 
+        "workup/trimmed/{sample}_R2_val_2.fq.gz"]
     output:
         fastq1="workup/trimmed/{sample}_R1_val_1_RDtrim.fq.gz",
-        fastq2="workup/trimmed/{sample}_R2_val_1_RDtrim.fq.gz"
+        fastq2="workup/trimmed/{sample}_R2_val_2_RDtrim.fq.gz",
         qc="workup/trimmed/{sample}.RDtrim.qc.txt"
     threads: 10
     params:
@@ -578,13 +580,34 @@ rule hisat2_align:
 #         samtools view -b -q 20 -o {output.rpm_repeat} {input.rpm_repeat}
 #         '''
 
+
+
+#   -M                  Multi-mapping reads will also be counted. For a multi-
+#                       mapping read, all its reported alignments will be 
+#                       counted. The 'NH' tag in BAM/SAM input is used to detect 
+#                       multi-mapping reads.
+#   -s <int or string>  Perform strand-specific read counting. A single integer
+#                       value (applied to all input files) or a string of comma-
+#                       separated values (applied to each corresponding input
+#                       file) should be provided. Possible values include:
+#                       0 (unstranded), 1 (stranded) and 2 (reversely stranded).
+#                       Default value is 0 (ie. unstranded read counting carried
+#                       out for all input files).
+#   -t <string>         Specify feature type in GTF annotation. 'exon' by 
+#                       default. Features used for read counting will be 
+#                       extracted from annotation using the provided value.
+# -g <string>         Specify attribute type in GTF annotation. 'gene_id' by 
+#                       default. Meta-features used for read counting will be 
+#                       extracted from annotation using the provided value.
 rule annotate_rna:
     input:
         "workup/alignments/{sample}.RNA.hisat2.mapq20.bam"
     threads: 8
     output:
-        bam_rna="workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.bam",
-        counts_rna="workup/alignments/{sample}.RNA.hisat2.mapq20.bam.featureCounts.txt",
+        bam_exon="workup/alignments/{sample}.RNAex.hisat2.mapq20.bam.featureCounts.bam",
+        bam_intron="workup/alignments/{sample}.RNAin.hisat2.mapq20.bam.featureCounts.bam",
+        counts_exon="workup/alignments/{sample}.RNAex.hisat2.mapq20.bam.featureCounts.txt",
+        counts_intron="workup/alignments/{sample}.RNAin.hisat2.mapq20.bam.featureCounts.txt",
         bam_rrna="workup/alignments/{sample}.RNAr.hisat2.mapq20.bam.featureCounts.bam",
         counts_rrna="workup/alignments/{sample}.RNAr.hisat2.mapq20.bam.featureCounts.txt"
     log:
@@ -593,14 +616,19 @@ rule annotate_rna:
         "envs/annotate_rna.yaml"
     shell:
         '''
-        featureCounts -T {threads} -t gene \
+        featureCounts -T {threads} -t exon \
         -R BAM -M -s 1 \
-        -g gene_name -a {anno_gtf} -o {output.counts_rna} \
+        -g gene_name -a {exon_intron_gtf} -o {output.counts_exon} \
         {input}
 
-        featureCounts -T {threads} -t gene \
+        featureCounts -T {threads} -t intron \
         -R BAM -M -s 1 \
-        -g gene_name -a {anno_repeats_gtf} -o {output.counts_rrna} \
+        -g gene_name -a {exon_intron_gtf} -o {output.counts_intron} \
+        {input}
+
+        featureCounts -T {threads} -t exon \
+        -R BAM -M -s 1 \
+        -g all_id -a {anno_repeats_gtf} -o {output.counts_rrna} \
         {input}
 
         '''
