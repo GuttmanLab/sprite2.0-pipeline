@@ -9,6 +9,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Add tags to bam file')
     parser.add_argument('-i', '--input', dest='input_bams', nargs='+', type=str, required=True,
                         help='BAM(s) path(s) for which to consolidate the XS/XT tag')
+    parser.add_argument('-i2', '--input_2', dest='input_bam', type=str, required=True,
+                        help='Master BAM to which to write consolidated tags')
     parser.add_argument('-o', '--out_bam', dest='output_bam', type=str, required=True,
                         help='Out BAM path')
 
@@ -31,7 +33,7 @@ def main():
 
     anno_dict = get_annotation(opts.input_bams)
     anno_clean = clean_annotation(anno_dict)
-    add_annotation(bam, opts.output_bam, anno_clean)
+    add_annotation(opts.input_bam, opts.output_bam, anno_clean)
 
 
 
@@ -117,7 +119,7 @@ def clean_annotation(anno_dict):
         if len(v) > 1:
             new_anno = []
             for i in v:
-                if i.split(':')[-1] == 'none':
+                if i.split('-')[-1] == 'none':
                     continue
                 else:
                     new_anno.append(i)
@@ -128,3 +130,5 @@ def clean_annotation(anno_dict):
     return anno_out
 
 #%%
+if __name__ == "__main__":
+    main()

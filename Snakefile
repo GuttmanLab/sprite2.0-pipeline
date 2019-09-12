@@ -72,14 +72,15 @@ except:
     print('SNPsplit not specified in config, will not run')
     run_snpsplit = False
 
+
 try:
-    g1 = config['snp_allele'][config['cell'][config['g1']]]
+    g1 = config['snp_allele'][config['cell']][config['g1']]
 except:
     print('No strain specified for genome 1')
     g1 = None
 
 try:
-    g2 = config['snp_allele'][config['cell'][config['g2']]]
+    g2 = config['snp_allele'][config['cell']][config['g2']]
 except:
     print('No strain specified for genome 2')
     g2 = None    
@@ -203,7 +204,8 @@ DPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_S
 BCS_ALL = expand(["workup/alignments/{sample}.DNA.all_bcs.bam",
           "workup/alignments/{sample}.RNA.all_bcs.bam",
           "workup/alignments/{sample}.RNAr.all_bcs.bam"], sample=ALL_SAMPLES)
-
+RNA_COMBINE = expand("workup/alignments/{sample}.RNA.hisat2.mapq20.anno.bam", 
+                     sample=ALL_SAMPLES)
 CLUSTERS = expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES)
 
 #If aligning to N-masked genome for SNPsplit
@@ -266,7 +268,7 @@ if sprite_type == 'RNA-DNA':
         rule all:
             input: ALL_FASTQ + TRIM + TRIM_LOG + TRIM_RD + BARCODEID + LE_LOG_ALL + RPM_ALL +
                 DPM_ALL + Bt2_DNA_ALIGN + SNPSPLIT_DNA + Ht2_RNA_ALIGN + Bt2_TAG_ALL +  
-                Ht2_ANNO_RNA + BCS_ALL + MASKED + CLUSTERS + MULTI_QC
+                Ht2_ANNO_RNA + RNA_COMBINE + BCS_ALL + MASKED + CLUSTERS + MULTI_QC
     else:
         print('Combination not configured yet')
         sys.exit()
@@ -623,6 +625,7 @@ rule annotate_rna:
 
 rule combine_annotations:
     input:
+        bam="workup/alignments/{sample}.RNA.hisat2.mapq20.bam",
         bam_exon="workup/alignments/{sample}.RNAex.hisat2.mapq20.bam.featureCounts.bam",
         bam_intron="workup/alignments/{sample}.RNAin.hisat2.mapq20.bam.featureCounts.bam",
         bam_rrna="workup/alignments/{sample}.RNAr.hisat2.mapq20.bam.featureCounts.bam"
@@ -633,7 +636,9 @@ rule combine_annotations:
     conda:
         "envs/python_dep.yaml"
     shell:
-        "python {comb_anno} -i {input.bam_exon} {input.bam_intron} {input.bam_rrna} -o {output} &> {log}"
+        "python {comb_anno} -i {input.bam_exon} {input.bam_intron} {input.bam_rrna} \
+            -i2 {input.bam} \
+            -o {output} &> {log}"
 
 
 
@@ -798,7 +803,7 @@ rule make_clusters_DNA:
 
 rule repeat_mask:
     input:
-        "workup/alignments/{sample}.DNA.all_bcs.bam" if sprite_type == 'RNA-DPM' else
+        "workup/alignments/{sample}.DNA.all_bcs.bam" if sprite_type == 'RNA-DNA' else
         "workup/alignments/{sample}.DNAonly.all_bcs.bam"
     output:
         "workup/alignments/{sample}.DNA.all_bcs.masked.bam"

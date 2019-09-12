@@ -2,6 +2,7 @@ import pysam
 import re
 import gzip
 import os
+import sys
 
 class Position:
     """This class represents a genomic position, with type of nucleic acid (RNA or DNA)
@@ -29,10 +30,19 @@ class Position:
                 self._end_coordinate == other._end_coordinate)
 
     def __hash__(self):
-        return hash((self._type, self._feature, self._chromosome, self._start_coordinate, self._end_coordinate))
+        return hash((self._type, self._feature, self._chromosome, 
+                     self._start_coordinate, self._end_coordinate))
 
     def to_string(self):
-        return self._type + "(" +self._feature + ")" + "_" + self._chromosome + ":" + str(self._start_coordinate) + "-" + str(self._end_coordinate)
+        try:
+            out = self._type + "(" + self._feature + ")" + "_" + \
+                self._chromosome + ":" + \
+                str(self._start_coordinate) + "-" + str(self._end_coordinate)
+        except:
+            print(self._type, self._feature, self._chromosome)
+            print('Elements are not as expect!')
+            sys.exit()
+        return out
 
 class UMIs:
     """This class hold the UMI
@@ -90,7 +100,7 @@ class Clusters:
     Methods:
     - get_cluster(barcode): Returns the cluster that corresponds to the given
       barcode. If the cluster does not exist, it is initialized (with zero
-      positions), and this empty cluster is returned.
+      positions), and this cluster.to_string()cluster.to_string()cluster.to_string()cluster.to_string()cluster.to_string()empty cluster is returned.
 
     - add_position(barcode, position): Adds the position to the cluster
       that corresponds with the given barcodes
@@ -176,7 +186,7 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                         # XX:Z:G1
                         if read.has_tag('XX'):
                             allele = read.get_tag('XX')
-                            if genome_1 != None and genome_2 != None:
+                            if genome_1 != "None" and genome_2 != "None":
                                 if allele == "G1":
                                     allele = genome_1
                                 elif allele == "G2":
