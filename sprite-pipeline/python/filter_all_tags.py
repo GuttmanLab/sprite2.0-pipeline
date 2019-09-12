@@ -94,7 +94,8 @@ def filter_reads(args):
         else:
             output_file = pysam.AlignmentFile(args.output, "wb", header = bam_header)
             for read in input_file.fetch(until_eof = True):
-                if not "NOT_FOUND" in read.query_name and 'chr' + read.reference_name in chroms:
+                ref_name = read.reference_name if 'chr' in read.reference_name else 'chr' + read.reference_name 
+                if not "NOT_FOUND" in read.query_name and ref_name in chroms:
                     output_file.write(read)
                     out_count += 1
                 else:

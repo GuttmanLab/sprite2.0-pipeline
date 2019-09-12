@@ -1,6 +1,7 @@
 import pysam
 import re
 import gzip
+import os
 
 class Position:
     """This class represents a genomic position, with type of nucleic acid (RNA or DNA)
@@ -129,7 +130,7 @@ class Clusters:
 
 
 
-def get_clusters(bamfile, num_tags):
+def get_clusters(bamfile, num_tags, genome_1, genome_2):
     """Parses a BAM file, groups positions into clusters according to their
     barcodes, and returns the resulting structure.
 
@@ -141,11 +142,15 @@ def get_clusters(bamfile, num_tags):
     the original read name with a double-colon.
     """
     #strip RPM DPM from barcode
-
+    #TODO add file name as an additional barcode
+    
     clusters = Clusters()
     pattern = re.compile('::' + num_tags * '\[([a-zA-Z0-9_\-]+)\]')
 
     for bam in bamfile:
+        #get sample name from bamfile
+        file_name = os.path.basename(bam)
+        sample_name = file_name.split('.')[0]
         try:
             with pysam.AlignmentFile(bam, "rb") as f:
                 for read in f.fetch(until_eof = True):
@@ -167,11 +172,24 @@ def get_clusters(bamfile, num_tags):
                                             read.reference_start, read.reference_end)
                         barcode.remove('RPM')
                     elif 'DPM' in barcode:
-                        position = Position('DPM', strand, read.reference_name,
+                        #add SNPSPLIT results into annotation
+                        # XX:Z:G1
+                        if read.has_tag('XX'):
+                            allele = read.get_tag('XX')
+                            if genome_1 != None and genome_2 != None:
+                                if allele == "G1":
+                                    allele = genome_1
+                                elif allele == "G2":
+                                    allele = genome_2
+                            anno = allele + ';' + strand 
+                        else:
+                            anno = strand
+                        position = Position('DPM', anno, read.reference_name,
                                             read.reference_start, read.reference_end)
                         barcode.remove('DPM')
                     else:
                         raise Exception('RPM or DPM not present in full barcode')
+                    barcode.append(sample_name)
                     barcode_str = ".".join(barcode)
                     clusters.add_position(barcode_str, position)
         except ValueError:
