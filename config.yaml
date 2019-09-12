@@ -52,3 +52,11 @@ hisat2_index:
 snp_file:
     psm33: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_129S1_SvImJ_SNPs_C57BL_6NJ_reference.based_on_GRCm38.txt"
     psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_129S1_SvImJ_SNPs_CAST_EiJ_reference.based_on_GRCm38.txt"
+#Used for annotation of cluster file
+snp_alleles:
+    psm33:
+        g1: "129S1_SvImJ"
+        g2: "C57BL_6NJ"
+    psm44:
+        g1: "129S1_SvImJ"
+        g2: "CAST_EiJ"

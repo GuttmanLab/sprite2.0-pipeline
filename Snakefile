@@ -73,6 +73,19 @@ except:
     run_snpsplit = False
 
 try:
+    g1 = config['snp_allele'][config['cell'][config['g1']]]
+except:
+    print('No strain specified for genome 1')
+    g1 = None
+
+try:
+    g2 = config['snp_allele'][config['cell'][config['g2']]]
+except:
+    print('No strain specified for genome 2')
+    g2 = None    
+
+
+try:
     DNA_aligner = config['dna_aligner']
     print('Using',DNA_aligner, 'for DNA alignment')
 except:
@@ -839,7 +852,12 @@ rule make_merged_clusters:
     conda:
         "envs/python_dep.yaml"
     shell:
-        "python {get_clusters} -i {input.dpm} {input.rpm} {input.rpm_repeat} -o {output} -n {num_tags} &> {log}"
+        "python {get_clusters} \
+        -i {input.dpm} {input.rpm} {input.rpm_repeat} \
+        -o {output} \
+        -n {num_tags} \
+        -g1 {g1} \
+        -g2 {g2} &> {log}"
 
 
 
