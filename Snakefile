@@ -74,13 +74,15 @@ except:
 
 
 try:
-    g1 = config['snp_allele'][config['cell']][config['g1']]
+    g1 = config['snp_alleles'][config['cell']]['g1']
+    print('Genome 1 strain:', g1)
 except:
     print('No strain specified for genome 1')
     g1 = None
 
 try:
-    g2 = config['snp_allele'][config['cell']][config['g2']]
+    g2 = config['snp_alleles'][config['cell']]['g2']
+    print('Genome 2 stain:', g2)
 except:
     print('No strain specified for genome 2')
     g2 = None    

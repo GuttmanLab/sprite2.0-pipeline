@@ -20,7 +20,7 @@ def parse_args():
 
 #%%
 def main():
-
+    
     # bams = ["/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNAex.hisat2.mapq20.bam.featureCounts.bam", 
     # "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNAr.hisat2.mapq20.bam.featureCounts.bam",
     # "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNAin.hisat2.mapq20.bam.featureCounts.bam"]
@@ -81,8 +81,6 @@ def get_annotation(bams):
 
 
 
-
-
 #%%
 def add_annotation(bam, output_bam, anno_dict):
     '''Add read annotation to a singular bam file
@@ -102,7 +100,7 @@ def add_annotation(bam, output_bam, anno_dict):
             name = read.query_name
             anno = anno_dict.get(name, 'none')
             try:
-                read.tags += [('XS', ''.join(anno))] #should be a single value
+                read.tags += [('XT', ''.join(anno))] #should be a single value
                 out_bam.write(read)
             except KeyError:
                 skipped += 1
@@ -125,7 +123,7 @@ def clean_annotation(anno_dict):
                     new_anno.append(i)
             anno_out[k] = ';'.join(new_anno)
         else:
-            anno_out[k] = v
+            anno_out[k] = ''.join(v)
 
     return anno_out
 
