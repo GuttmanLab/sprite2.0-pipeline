@@ -72,20 +72,20 @@ except:
     print('SNPsplit not specified in config, will not run')
     run_snpsplit = False
 
+if run_snpsplit == 'True':
+    try:
+        g1 = config['snp_alleles'][config['cell']]['g1']
+        print('Genome 1 strain:', g1)
+    except:
+        print('No strain specified for genome 1')
+        g1 = None
 
-try:
-    g1 = config['snp_alleles'][config['cell']]['g1']
-    print('Genome 1 strain:', g1)
-except:
-    print('No strain specified for genome 1')
-    g1 = None
-
-try:
-    g2 = config['snp_alleles'][config['cell']]['g2']
-    print('Genome 2 stain:', g2)
-except:
-    print('No strain specified for genome 2')
-    g2 = None    
+    try:
+        g2 = config['snp_alleles'][config['cell']]['g2']
+        print('Genome 2 stain:', g2)
+    except:
+        print('No strain specified for genome 2')
+        g2 = None    
 
 
 try:
@@ -317,6 +317,7 @@ rule adaptor_trimming_pe:
 
 
 #Trim DPM RPM if read through reads
+#TODO: Would be nice to run fastqc after this
 #RPM from right ATCAGCACTTA
 #DPM from right GATCGGAAGAG
 #DPM from left GGTGGTCTT ^ anchored (only appears at the start of read)
@@ -473,7 +474,7 @@ rule star_align_dna:
 
          pigz workup/alignments/{wildcards.sample}.DNA.unmapped.fastq
 
-         samtools view -bq 20 {wildcards.sample}.DNA.Aligned.out.bam > \
+         samtools view -bq 20 workup/alignments/{wildcards.sample}.DNA.Aligned.out.bam > \
              workup/alignments/{wildcards.sample}.DNA.Aligned.out.mapq20.bam
          """
 
@@ -515,7 +516,7 @@ rule star_align_rna:
 
          pigz workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
 
-         samtools view -bq 20 {wildcards.sample}.RNA.Aligned.sortedByCoord.out.bam > \
+         samtools view -bq 20 workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.bam > \
              workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam
          '''
 
@@ -526,13 +527,14 @@ rule star_align_rna:
 # we are also filtering out unmapped reads (-F 4), or reads where the mate was unmapped (-F 8)
 # we are also filtering non-primary alignments (-F 256)
 #filter on mapq score of 20 (Skip alignments with MAPQ smaller than 20)
+#-U FILE Write alignments that are not selected by the various filter options to FILE
 rule hisat2_align:
     input:
         fq="workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
     output:
         all_reads=temp("workup/alignments/{sample}.RNA.hisat2.bam"),
-        low_mapq=temp("workup/alignments/{sample}.RNA.hisat2.lowmapq.bam"),
-        unmapped=temp("workup/alignments/{sample}.RNA.hisat2.unmapped.bam"),
+        # low_mapq=temp("workup/alignments/{sample}.RNA.hisat2.lowmapq.bam"),
+        # unmapped=temp("workup/alignments/{sample}.RNA.hisat2.unmapped.bam"),
         mapped="workup/alignments/{sample}.RNA.hisat2.mapq20.bam",
         merged="workup/alignments/{sample}.RNA.hisat2.unmapped.lowmq.bam",
         fq_gz="workup/alignments/{sample}.RNA.hisat2.unmapped.lowmq.fq.gz"
@@ -553,12 +555,9 @@ rule hisat2_align:
         -U {input.fq} | \
         samtools view -b -F 256 - > {output.all_reads}) &> {log}
         #split out unmapped and low mapq reads for realignment to repeats
-        samtools view -b -F 4 {output.all_reads} > {output.mapped}
-        samtools view -bq 20 -F 4 {output.all_reads} > {output.low_mapq}
-        samtools view -b -f 4 {output.all_reads} > {output.unmapped}
-        samtools merge -@ {threads} {output.merged} {output.low_mapq} {output.unmapped}
-        samtools bam2fq -@ {threads} {output.merged} > "workup/alignments/{wildcards.sample}.RNA.hisat2.unmapped.lowmq.fq"
-        pigz "workup/alignments/{wildcards.sample}.RNA.hisat2.unmapped.lowmq.fq"
+        samtools view -bq 20 -U {output.merged} -F 4 {output.all_reads} > {output.mapped}
+        samtools bam2fq -@ {threads} {output.merged} > workup/alignments/{wildcards.sample}.RNA.hisat2.unmapped.lowmq.fq
+        pigz workup/alignments/{wildcards.sample}.RNA.hisat2.unmapped.lowmq.fq
         '''
 
 
@@ -723,7 +722,7 @@ rule star_align_rrna:
 
          gzip workup/alignments/{wildcards.sample}.RNAr.unmapped.fastq
 
-         samtools view -bq 20 {wildcards.sample}.RNAr.Aligned.sortedByCoord.out.bam > \
+         samtools view -bq 20 workup/alignments/{wildcards.sample}.RNAr.Aligned.sortedByCoord.out.bam > \
              workup/alignments/{wildcards.sample}.RNAr.Aligned.sortedByCoord.out.mapq20.bam
          '''
 
