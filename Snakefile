@@ -673,11 +673,12 @@ rule annotate_rna_star:
 #Align RNA with Bowtie2 to repeats
 #MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
 #-F: Do not output alignments with any bits set in INT present in the FLAG field
+#q 20 don't filter until we resolve multimapping issue
 rule bowtie2_align_rna_repeats:
      input:
         fq = "workup/alignments/{sample}.RNA.hisat2.unmapped.lowmq.fq.gz"
      output:
-         "workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam",        
+         "workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam"   
      log:
          "workup/logs/{sample}.RNAr.bowtie2.log"
      threads: 10
@@ -690,7 +691,7 @@ rule bowtie2_align_rna_repeats:
         --phred33 \
         -x {bowtie2_repeat_index} \
         -U {input.fq} | \
-        samtools view -bSq 20 -F 4 -F 256 - > {output}) &> {log}"
+        samtools view -bS -F 4 -F 256 - > {output}) &> {log}"
 
 
 #Align RNA with STAR to repeats

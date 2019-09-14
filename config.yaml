@@ -2,7 +2,7 @@
 bID: "./config.txt"
 #Type of SPRITE to analyse: "RNA-DNA" or "DNA-DNA"
 type: "RNA-DNA"
-#Currently "mm10" and "hg19" available
+#Currently "mm10","hg19" and "hg38" available
 assembly: "mm10"
 #Number of barcodes used (this includes DPM/RPM for RNA-DNA)
 num_tags: "5"
