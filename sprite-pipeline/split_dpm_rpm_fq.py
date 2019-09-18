@@ -5,6 +5,74 @@ import argparse
 import re
 # from collections import defaultdict
 
+
+def parse_args():
+
+    parser = argparse.ArgumentParser(description='Split fastq based on dpm and rpm sequence')
+    parser.add_argument('--r1', dest='read_1', type=str, required=True,
+                        help='Fastq read 1')
+    # parser.add_argument('--r2', dest='read_2', type=str, required=True,
+    #                     help='Fastq read 2')
+
+    opts = parser.parse_args()
+
+    return opts
+
+
+def main():
+
+    #argparse
+    opts = parse_args()
+
+    # RPM in Read2: `CTGACGCTAAGTGCTGAT`
+    # DPM in Read2: `TCATGTCTTCCGATCT`
+
+    read_1_path = opts.read_1
+    # read_2_path = opts.read_2
+
+    dpm_out_path = os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_dpm.fastq.gz'
+    rpm_out_path =  os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_rpm.fastq.gz'
+    other_out_path =  os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_other.fastq.gz'
+    short_out_path =  os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_short.fastq.gz'
+
+
+    dpm_count = 0
+    rpm_count = 0
+    other_count = 0
+    incomplete = 0
+
+    pattern = re.compile('\[([a-zA-Z0-9_\-]+)\]')
+
+    # fq_split_dict = {'dpm':set(), 'rpm':set(), 'other':set()}
+
+    with file_open(read_1_path) as read_1, \
+    gzip.open(dpm_out_path, 'wt') as dpm_out, \
+    gzip.open(rpm_out_path, 'wt') as rpm_out, \
+    gzip.open(other_out_path, 'wt') as other_out, \
+    gzip.open(short_out_path, 'wt') as short_out:
+        for qname, seq, thrd, qual in fastq_parse(read_1):
+                barcodes = pattern.findall(qname)
+                if 'NOT_FOUND' in barcodes:
+                    if 'DPM' in barcodes:
+                        dpm_count += 1
+                        dpm_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                    elif 'RPM' in barcodes:
+                        rpm_count += 1
+                        rpm_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                    else:
+                        other_count += 1
+                        other_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                else:
+                    incomplete += 1
+                    short_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+    print('Reads without full barcode:', incomplete)
+    print('DPM reads out:', dpm_count)
+    print('RPM reads out:', rpm_count)
+    print('Reads without RPM or DPM barcode:', other_count)
+
+
+
 def file_open(filename):
     """
     Open as normal or as gzip
@@ -18,6 +86,7 @@ def file_open(filename):
     else:
         f.seek(0)
         return f
+
 
 def fastq_parse(fp):
     """
@@ -60,64 +129,6 @@ def fastq_parse(fp):
             yield name, seq, thrd, qual,
             name, seq, thrd, qual = [None] * 4
 
-
-
-def parse_args():
-
-    parser = argparse.ArgumentParser(description='Split fastq based on dpm and rpm sequence')
-    parser.add_argument('--r1', dest='read_1', type=str, required=True,
-                        help='Fastq read 1')
-    # parser.add_argument('--r2', dest='read_2', type=str, required=True,
-    #                     help='Fastq read 2')
-
-    opts = parser.parse_args()
-
-    return opts
-
-
-def main():
-
-    #argparse
-    opts = parse_args()
-
-    # RPM in Read2: `CTGACGCTAAGTGCTGAT`
-    # DPM in Read2: `TCATGTCTTCCGATCT`
-
-    read_1_path = opts.read_1
-    # read_2_path = opts.read_2
-
-    dpm_out_path = os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_dpm.fastq.gz'
-    rpm_out_path =  os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_rpm.fastq.gz'
-    other_out_path =  os.path.splitext(os.path.splitext(read_1_path)[0])[0] + '_other.fastq.gz'
-
-
-    dpm_count = 0
-    rpm_count = 0
-    other_count = 0
-
-    pattern = re.compile('\[([a-zA-Z0-9_\-]+)\]')
-
-    # fq_split_dict = {'dpm':set(), 'rpm':set(), 'other':set()}
-
-    with file_open(read_1_path) as read_1, \
-    gzip.open(dpm_out_path, 'wt') as dpm_out, \
-    gzip.open(rpm_out_path, 'wt') as rpm_out, \
-    gzip.open(other_out_path, 'wt') as other_out:
-        for qname, seq, thrd, qual in fastq_parse(read_1):
-                barcodes = pattern.findall(qname)
-                if 'DPM' in barcodes:
-                    dpm_count += 1
-                    dpm_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                elif 'RPM' in barcodes:
-                    rpm_count += 1
-                    rpm_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                else:
-                    other_count += 1
-                    other_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-    print('DPM reads out:', dpm_count)
-    print('RPM reads out:', rpm_count)
-    print('Reads without RPM or DPM barcode:', other_count)
 
 if __name__ == "__main__":
     main()

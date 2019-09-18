@@ -1,7 +1,16 @@
+'''
+Author: Peter Chovanec
+Aim: A Snakemake workflow to process RNA-DNA and DNA-DNA SPRITE-seq data
+'''
+
+
 import os 
 import sys
 
-email = "pchovanec@lncrna.caltech.edu"
+try:
+    email = config['email']
+except:
+    email = 'pchovanec@lncrna.caltech.edu'
 
 
 #Location of scripts
@@ -9,7 +18,7 @@ barcode_id_jar = "sprite-pipeline/java/BarcodeIdentification_v1.2.0.jar"
 lig_eff = "sprite-pipeline/python/get_ligation_efficiency.py"
 split_fq = "sprite-pipeline/split_dpm_rpm_fq.py"
 atttb = "sprite-pipeline/add_tnx_tag_to_bam.py"
-all_tags = "sprite-pipeline/python/filter_all_tags.py"
+add_chr = "sprite-pipeline/python/ensembl2ucsc.py"
 get_clusters = "sprite-pipeline/python/get_clusters.py"
 comb_anno = "sprite-pipeline/combine_annotation_bams.py"
 
@@ -18,7 +27,7 @@ comb_anno = "sprite-pipeline/combine_annotation_bams.py"
 try:
     config_path = config["config_path"]
 except:
-    config_path = "config.yaml"
+    config_path = 'config.yaml'
 
 configfile: config_path
 
@@ -27,7 +36,7 @@ try:
     bid_config = config['bID']
     print('Using BarcodeID config', bid_config)
 except:
-    bid_config = "workup/config.txt"
+    bid_config = 'workup/config.txt'
     print('Config "bID" not specified, looking for config at:', bid_config)
 
 try:
@@ -195,23 +204,25 @@ TRIM_RD = expand(["workup/trimmed/{sample}_R1_val_1_RDtrim.fq.gz",
                   "workup/trimmed/{sample}_R2_val_2_RDtrim.fq.gz"], 
                   sample = ALL_SAMPLES)
 LE_LOG_ALL = ["workup/ligation_efficiency.txt"]
-MASKED = expand("workup/alignments/{sample}.DNA.all_bcs.masked.bam", sample=ALL_SAMPLES)
+MASKED = expand("workup/alignments/{sample}.DNA.chr.masked.bam", sample=ALL_SAMPLES)
 MULTI_QC = ["workup/qc/multiqc_report.html"]
 
 #RNA-DNA
 BARCODEID = expand("workup/fastqs/{sample}_{read}.barcoded.fastq.gz", sample = ALL_SAMPLES, 
                    read = ["R1", "R2"])
-RPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz", sample=ALL_SAMPLES)
-DPM_ALL = expand("workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz", sample=ALL_SAMPLES)
-BCS_ALL = expand(["workup/alignments/{sample}.DNA.all_bcs.bam",
-          "workup/alignments/{sample}.RNA.all_bcs.bam",
-          "workup/alignments/{sample}.RNAr.all_bcs.bam"], sample=ALL_SAMPLES)
+SPLIT_ALL = expand(["workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz", 
+                    "workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz"], 
+                    sample=ALL_SAMPLES)
+
+CHR_ALL = expand(["workup/alignments/{sample}.DNA.chr.bam",
+          "workup/alignments/{sample}.RNA.chr.bam",
+          "workup/alignments/{sample}.RNAr.chr.bam"], sample=ALL_SAMPLES)
 RNA_COMBINE = expand("workup/alignments/{sample}.RNA.hisat2.mapq20.anno.bam", 
                      sample=ALL_SAMPLES)
 CLUSTERS = expand("workup/clusters/{sample}.clusters", sample=ALL_SAMPLES)
 
 #If aligning to N-masked genome for SNPsplit
-#Bowtie2 aligment
+#Bowtie2 alignment
 Bt2_DNA_ALIGN = expand("workup/alignments/{sample}.DNA.bowtie2.mapq20.bam", 
                        sample=ALL_SAMPLES)
 SNPSPLIT_DNA = expand("workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam", 
@@ -220,6 +231,8 @@ Bt2_TAG_ALL = expand("workup/alignments/{sample}.RNAr.bowtie2.mapq20.tag.bam",
                        sample=ALL_SAMPLES)
 Bt2_RNAr = expand("workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam", 
                   sample=ALL_SAMPLES)
+DNA_COMBINE = expand("workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.anno.bam", 
+                     sample=ALL_SAMPLES)
 
 #Hisat2 alignment
 Ht2_RNA_ALIGN = expand(["workup/alignments/{sample}.RNA.hisat2.mapq20.bam",
@@ -251,7 +264,7 @@ STAR_ANNO_RNA = expand("workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out
 #DNA-DNA
 BARCODEID_DNA = expand("workup/fastqs/{sample}_{read}.barcoded_dpm.fastq.gz", 
                        sample = ALL_SAMPLES, read = ["R1", "R2"])
-BCS_DNA = expand("workup/alignments/{sample}.DNAonly.all_bcs.bam", sample=ALL_SAMPLES)
+BCS_DNA = expand("workup/alignments/{sample}.DNAonly.chr.bam", sample=ALL_SAMPLES)
 CLUSTERS_DNA = expand("workup/clusters/{sample}.DNA.clusters", sample=ALL_SAMPLES)
 MAPQ_DNA = expand("workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam", sample=ALL_SAMPLES)
 
@@ -262,15 +275,15 @@ MAPQ_DNA = expand("workup/alignments/{sample}.DNAonly.Aligned.out.mapq20.bam", s
 if sprite_type == 'RNA-DNA':
     if DNA_aligner == 'star' and RNA_aligner == 'star':
         rule all:
-            input: ALL_FASTQ + TRIM + TRIM_LOG + TRIM_RD + BARCODEID + LE_LOG_ALL + RPM_ALL +
-                DPM_ALL + STAR_DNA_ALIGN + STAR_RNA + STAR_ALL_RNAr + STAR_ANNO_RNA +
-                STAR_RNA_UNMAP + STAR_TAG_ALL + BCS_ALL + MASKED + 
+            input: ALL_FASTQ + TRIM + TRIM_LOG + TRIM_RD + BARCODEID + LE_LOG_ALL + SPLIT_ALL +
+                STAR_DNA_ALIGN + STAR_RNA + STAR_ALL_RNAr + STAR_ANNO_RNA +
+                STAR_RNA_UNMAP + STAR_TAG_ALL + CHR_ALL + MASKED + 
                 CLUSTERS + MULTI_QC
     elif DNA_aligner == 'bowtie2' and RNA_aligner == 'hisat2':
         rule all:
-            input: ALL_FASTQ + TRIM + TRIM_LOG + TRIM_RD + BARCODEID + LE_LOG_ALL + RPM_ALL +
-                DPM_ALL + Bt2_DNA_ALIGN + SNPSPLIT_DNA + Ht2_RNA_ALIGN + Bt2_TAG_ALL +  
-                Ht2_ANNO_RNA + RNA_COMBINE + BCS_ALL + MASKED + CLUSTERS + MULTI_QC
+            input: ALL_FASTQ + TRIM + TRIM_LOG + TRIM_RD + BARCODEID + LE_LOG_ALL + SPLIT_ALL +
+                Bt2_DNA_ALIGN + SNPSPLIT_DNA + Ht2_RNA_ALIGN + Bt2_TAG_ALL +  
+                Ht2_ANNO_RNA + RNA_COMBINE + CHR_ALL + MASKED + CLUSTERS + MULTI_QC
     else:
         print('Combination not configured yet')
         sys.exit()
@@ -278,7 +291,7 @@ elif sprite_type == 'DNA-DNA':
     #just use bowtie2 here
     rule all:
         input: ALL_FASTQ + TRIM + TRIM_LOG + BARCODEID_DNA + LE_LOG_ALL + BARCODEID_DNA +
-               Bt2_DNA_ALIGN + BCS_DNA + CLUSTERS_DNA + MULTI_QC
+               Bt2_DNA_ALIGN + CHR_DNA + CLUSTERS_DNA + MULTI_QC
 
 
 
@@ -387,15 +400,16 @@ rule cat_ligation_efficiency:
     shell:
         "tail -n +1 {input} > {output}"
 
-
-
+#TODO: this breaks the DNA-DNA pipeline
+#split rpm and dpm will also remove incomplete barcodes
 rule split_rpm_dpm:
     input:
         "workup/fastqs/{sample}_R1.barcoded.fastq.gz"
     output:
         "workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz",
         "workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz",
-        "workup/fastqs/{sample}_R1.barcoded_other.fastq.gz"
+        "workup/fastqs/{sample}_R1.barcoded_other.fastq.gz",
+        "workup/fastqs/{sample}_R1.barcoded_short.fastq.gz"
     log:
         "workup/logs/{sample}_RPM_DPM.log"
     shell:
@@ -418,7 +432,7 @@ rule bowtie2_align:
         "envs/bowtie2.yaml"
     shell:
         "(bowtie2 \
-        -p 8 \
+        -p 10 \
         -t \
         --phred33 \
         -x {bowtie2_index} \
@@ -462,7 +476,7 @@ rule star_align_dna:
         'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
         'envs/star_hg19.yaml'
      shell:
-         """
+         '''
          STAR {DNA_star_params} \
          --runThreadN {threads} \
          --genomeDir {star_index} \
@@ -476,7 +490,74 @@ rule star_align_dna:
 
          samtools view -bq 20 workup/alignments/{wildcards.sample}.DNA.Aligned.out.bam > \
              workup/alignments/{wildcards.sample}.DNA.Aligned.out.mapq20.bam
-         """
+         '''
+
+
+
+rule annotate_dna:
+    input:
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam"
+    threads: 10
+    output:
+        bam_exon="workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
+        bam_intron="workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
+        counts_exon="workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.txt",
+        counts_intron="workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.txt",
+        bam_rrna="workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
+        counts_rrna="workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.txt"
+    log:
+        "workup/logs/{sample}.anno.log"
+    params:
+        ex_rename = "workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam",
+        in_rename = "workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam",
+        r_rename = "workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam"
+    conda:
+        "envs/annotate_rna.yaml"
+    shell:
+        '''
+        mv {input} {params.ex_rename}
+        featureCounts -T {threads} -t exon \
+        -R BAM -M -s 1 \
+        -g gene_name -a {exon_intron_gtf} -o {output.counts_exon} \
+        {params.ex_rename}
+
+        mv {params.ex_rename} {params.in_rename}
+        featureCounts -T {threads} -t intron \
+        -R BAM -M -s 1 \
+        -g gene_name -a {exon_intron_gtf} -o {output.counts_intron} \
+        {params.in_rename}
+
+        mv {params.in_rename} {params.r_rename}
+        featureCounts -T {threads} -t exon \
+        -R BAM -M -s 1 \
+        -g all_id -a {anno_repeats_gtf} -o {output.counts_rrna} \
+        {params.r_rename}
+
+        mv {params.r_rename} {input}
+
+        '''
+
+rule combine_annotations_dna:
+    input:
+        bam="workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam",
+        bam_exon="workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
+        bam_intron="workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
+        bam_rrna="workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam"
+    output:
+        "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.anno.bam"
+    log:
+        "workup/logs/{sample}.DNA_anno_combine.log"
+    conda:
+        "envs/python_dep.yaml"
+    shell:
+        "python {comb_anno} -i {input.bam_exon} {input.bam_intron} {input.bam_rrna} \
+            -i2 {input.bam} \
+            -o {output} &> {log}"
+
+
+
+
+
 
 ############################################################################################
 #RNA alignment
@@ -548,7 +629,7 @@ rule hisat2_align:
         # --no-discordant $splices \
         '''
         (hisat2 --sp 1000,1000 \
-        -p 8 \
+        -p 10 \
         -t \
         --phred33 \
         -x {hisat2_index} \
@@ -624,7 +705,7 @@ rule annotate_rna:
         '''
 
 
-rule combine_annotations:
+rule combine_annotations_rna:
     input:
         bam="workup/alignments/{sample}.RNA.hisat2.mapq20.bam",
         bam_exon="workup/alignments/{sample}.RNAex.hisat2.mapq20.bam.featureCounts.bam",
@@ -633,7 +714,7 @@ rule combine_annotations:
     output:
         "workup/alignments/{sample}.RNA.hisat2.mapq20.anno.bam"
     log:
-        "workup/logs/{sample}.anno_combine.log"
+        "workup/logs/{sample}.RNA_anno_combine.log"
     conda:
         "envs/python_dep.yaml"
     shell:
@@ -646,7 +727,7 @@ rule combine_annotations:
 rule annotate_rna_star:
     input:
         "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam"
-    threads: 8
+    threads: 10
     output:
         bam="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.bam",
         counts="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.txt"
@@ -686,7 +767,7 @@ rule bowtie2_align_rna_repeats:
           "envs/bowtie2.yaml"
      shell:
          "(bowtie2 \
-        -p 8 \
+        -p 10 \
         -t \
         --phred33 \
         -x {bowtie2_repeat_index} \
@@ -755,7 +836,7 @@ rule add_tags_bowtie2:
     log:
         "workup/logs/{sample}.RNAr.bowtie2.tag.log"
     threads:
-        10
+        5
     conda:
         'envs/rna_repeats.yaml'
     shell:'''
@@ -772,24 +853,24 @@ rule add_tags_bowtie2:
 ############################################################################################
 
 
-rule all_barcodes_DNA_DNA:
+rule add_chr_DNA_DNA:
     input:
         "workup/alignments/{sample}.DNA.bowtie2.mapq20.bam"
     output:
-        "workup/alignments/{sample}.DNAonly.all_bcs.bam"
+        "workup/alignments/{sample}.DNAonly.chr.bam"
     log:
         "workup/logs/{sample}.DNA_bcs.log"
     conda:
         "envs/python_dep.yaml"
     shell:
         '''
-        python {all_tags} -i {input} -o {output} --assembly {assembly} &> {log}
+        python {add_chr} -i {input} -o {output} --assembly {assembly} &> {log}
         '''
 
 
 rule make_clusters_DNA:
     input:
-        "workup/alignments/{sample}.DNA.all_bcs.masked.bam",
+        "workup/alignments/{sample}.DNA.chr.masked.bam",
     output:
         "workup/clusters/{sample}.DNA.clusters"
     log:
@@ -805,10 +886,10 @@ rule make_clusters_DNA:
 
 rule repeat_mask:
     input:
-        "workup/alignments/{sample}.DNA.all_bcs.bam" if sprite_type == 'RNA-DNA' else
-        "workup/alignments/{sample}.DNAonly.all_bcs.bam"
+        "workup/alignments/{sample}.DNA.chr.bam" if sprite_type == 'RNA-DNA' else
+        "workup/alignments/{sample}.DNAonly.chr.bam"
     output:
-        "workup/alignments/{sample}.DNA.all_bcs.masked.bam"
+        "workup/alignments/{sample}.DNA.chr.masked.bam"
     conda:
         "envs/bedtools.yaml"
     shell:
@@ -820,18 +901,18 @@ rule repeat_mask:
 #RNA-DNA only 
 ############################################################################################
 
-rule all_barcodes_RNA_DNA:
+rule add_chr_RNA_DNA:
     input:
         dpm="workup/alignments/{sample}.DNA.Aligned.out.mapq20.bam" 
-            if DNA_aligner == 'star' else "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam",
+            if DNA_aligner == 'star' else "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.anno.bam",
         rpm="workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.bam"
             if RNA_aligner == 'star' else "workup/alignments/{sample}.RNA.hisat2.mapq20.anno.bam",
         rpm_repeat="workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam"
                    if RNA_aligner == 'star' else "workup/alignments/{sample}.RNAr.bowtie2.mapq20.tag.bam"
     output:
-        dpm="workup/alignments/{sample}.DNA.all_bcs.bam",
-        rpm="workup/alignments/{sample}.RNA.all_bcs.bam",
-        rpm_repeat="workup/alignments/{sample}.RNAr.all_bcs.bam"
+        dpm="workup/alignments/{sample}.DNA.chr.bam",
+        rpm="workup/alignments/{sample}.RNA.chr.bam",
+        rpm_repeat="workup/alignments/{sample}.RNAr.chr.bam"
     log:
         dpm="workup/logs/{sample}.DNA_bcs.log",
         rpm="workup/logs/{sample}.RNA_bcs.log",
@@ -840,18 +921,18 @@ rule all_barcodes_RNA_DNA:
         "envs/python_dep.yaml"
     shell:
         '''
-        python {all_tags} -i {input.dpm} -o {output.dpm} --assembly {assembly} &> {log.dpm}
-        python {all_tags} -i {input.rpm} -o {output.rpm} --assembly {assembly} &> {log.rpm}
-        python {all_tags} -i {input.rpm_repeat} -o {output.rpm_repeat} --assembly none &> {log.rpm_repeat}
+        python {add_chr} -i {input.dpm} -o {output.dpm} --assembly {assembly} &> {log.dpm}
+        python {add_chr} -i {input.rpm} -o {output.rpm} --assembly {assembly} &> {log.rpm}
+        python {add_chr} -i {input.rpm_repeat} -o {output.rpm_repeat} --assembly none &> {log.rpm_repeat}
         '''
 
-#TODO add smaples names to barcodeID to seperate cluster files when concatenated
+
 
 rule make_merged_clusters:
     input:
-        dpm="workup/alignments/{sample}.DNA.all_bcs.masked.bam",
-        rpm="workup/alignments/{sample}.RNA.all_bcs.bam",
-        rpm_repeat="workup/alignments/{sample}.RNAr.all_bcs.bam"
+        dpm="workup/alignments/{sample}.DNA.chr.masked.bam",
+        rpm="workup/alignments/{sample}.RNA.chr.bam",
+        rpm_repeat="workup/alignments/{sample}.RNAr.chr.bam"
     output:
         "workup/clusters/{sample}.clusters"
     log:
@@ -888,9 +969,9 @@ rule multiqc:
 
 # rule snpsplit_DNA:
 #     input:
-#         "workup/alignments/{sample}.DNA.all_bcs.bam"
+#         "workup/alignments/{sample}.DNA.chr.bam"
 #     output:
-#         "workup/alignments/{sample}.DNA.all_bcs.allele_flagged.bam"
+#         "workup/alignments/{sample}.DNA.chr.allele_flagged.bam"
 #     log:
 #         "workup/logs/snpsplit.log"
 #     conda:
