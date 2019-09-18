@@ -1,71 +1,83 @@
 __default__:
     time: "05:00:00"
     mem: 20g
+    cpus: 1
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
-    n: 1
 cutadapt:
     time: "05:00:00"
     mem: 20g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 bowtie2_align:
     time: "12:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 star_align_dna:
     time: "24:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 star_align_rna:
     time: "24:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 hisat2_align:
     time: "12:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 annotate_rna:
     time: "5:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 annotate_dna:
     time: "5:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 annotate_rna_star:
     time: "5:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 bowtie2_align_rna_repeats:
     time: "5:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 star_align_rrna:
     time: "5:00:00"
     mem: 50g
-    n: 10
+    cpus: 10
+    nodes: 1
     output: "workup/logs/cluster/{rule}.{wildcards.sample}.out"
     error: "workup/logs/cluster/{rule}.{wildcards.sample}.err"
 add_tags_bowtie2:
     time: "5:00:00"
     mem: 50g
-    n: 5
+    cpus: 5
+    nodes: 1
     

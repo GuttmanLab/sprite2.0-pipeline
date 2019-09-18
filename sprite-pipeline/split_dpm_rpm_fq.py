@@ -53,6 +53,9 @@ def main():
         for qname, seq, thrd, qual in fastq_parse(read_1):
                 barcodes = pattern.findall(qname)
                 if 'NOT_FOUND' in barcodes:
+                    incomplete += 1
+                    short_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                else:
                     if 'DPM' in barcodes:
                         dpm_count += 1
                         dpm_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
@@ -62,9 +65,7 @@ def main():
                     else:
                         other_count += 1
                         other_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                else:
-                    incomplete += 1
-                    short_out.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                    
 
     print('Reads without full barcode:', incomplete)
     print('DPM reads out:', dpm_count)
