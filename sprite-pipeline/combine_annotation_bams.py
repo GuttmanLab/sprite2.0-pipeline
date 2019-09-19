@@ -25,13 +25,17 @@ def main():
     # "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNAr.hisat2.mapq20.bam.featureCounts.bam",
     # "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNAin.hisat2.mapq20.bam.featureCounts.bam"]
 
+    # bams = ["/mnt/data/RNA_DNA_SPRITE/featureCounts/2019_06_28_2p5-13n14.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam", 
+    # "/mnt/data/RNA_DNA_SPRITE/featureCounts/2019_06_28_2p5-13n14.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
+    # "/mnt/data/RNA_DNA_SPRITE/featureCounts/2019_06_28_2p5-13n14.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam"]
+
     # bam = "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNA.hisat2.mapq20.bam"
 
     # output_bam = "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNA.hisat2.mapq20.anno.bam"
 
     opts = parse_args()
-
-    anno_dict = get_annotation(opts.input_bams)
+# opts.input_
+    anno_dict = get_annotation(bams)
     anno_clean = clean_annotation(anno_dict)
     add_annotation(opts.input_bam, opts.output_bam, anno_clean)
 
@@ -51,11 +55,11 @@ def get_annotation(bams):
 
     for bam in bams:
         #get annotation type based on bam name
-        if 'RNAex' in bam:
+        if 'RNAex' in bam or 'DNAex' in bam:
             anno_type='exon'
-        elif 'RNAin' in bam:
+        elif 'RNAin' in bam or 'DNAin' in bam:
             anno_type='intron'
-        elif 'RNAr' in bam:
+        elif 'RNAr' in bam or 'DNAr' in bam:
             anno_type='repeat'
         else:
             raise Exception('Could not determine annotation type from file name')
@@ -69,8 +73,13 @@ def get_annotation(bams):
                         read_annotation[name].add(anno + '-' + anno_type)
                     #only XS flag present if no feature identified
                     elif read.has_tag('XS'):
-                        anno = read.get_tag('XS')
-                        read_annotation[name].add(anno + '-' + 'none')
+                        anno = read.get_tag('XS') #, with_value_type=True
+                        #XS field exists for some other purpose with an integer value i type vs Z type
+                        try:
+                            read_annotation[name].add(anno + '-' + 'none')
+                        except TypeError:
+                            read_annotation[name].add('Unassigned_NoFeatures-none')
+
                     else:
                         raise Exception('XS tag missing, was featureCounts run?')
                     

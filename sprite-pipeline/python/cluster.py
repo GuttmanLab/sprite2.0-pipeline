@@ -191,9 +191,22 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                                     allele = genome_1
                                 elif allele == "G2":
                                     allele = genome_2
-                            anno = allele + ';' + strand 
+                            st_anno = allele + ';' + strand 
                         else:
-                            anno = strand
+                            st_anno = strand
+
+                        if read.has_tag('XT'):
+                            gene_anno = read.get_tag('XT')
+                        elif read.has_tag('XS'):
+                            gene_anno = read.get_tag('XS')
+                        else:
+                            gene_anno = ''
+
+                        if len(gene_anno) == 0:
+                            anno = st_anno
+                        else:
+                            anno = st_anno + ';' + gene_anno
+
                         position = Position('DPM', anno, read.reference_name,
                                             read.reference_start, read.reference_end)
                         barcode.remove('DPM')
