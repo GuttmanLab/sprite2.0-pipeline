@@ -57,8 +57,8 @@ snp_file:
 #Used for annotation of cluster file
 snp_alleles:
     psm33:
-        g1: "129S1_SvImJ"
-        g2: "C57BL_6NJ"
+        g1: "C57BL_6NJ"
+        g2: "129S1_SvImJ"
     psm44:
-        g1: "129S1_SvImJ"
-        g2: "CAST_EiJ"
+        g1: "CAST_EiJ"
+        g2: "129S1_SvImJ"

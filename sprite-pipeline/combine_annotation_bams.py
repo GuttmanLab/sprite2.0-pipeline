@@ -70,13 +70,13 @@ def get_annotation(bams):
                     #get featureCounts annotation
                     if read.has_tag('XT'):
                         anno = read.get_tag('XT')
-                        read_annotation[name].add(anno + '-' + anno_type)
+                        read_annotation[name].add(anno + '.' + anno_type)
                     #only XS flag present if no feature identified
                     elif read.has_tag('XS'):
                         anno = read.get_tag('XS') #, with_value_type=True
                         #XS field exists for some other purpose with an integer value i type vs Z type
                         try:
-                            read_annotation[name].add(anno + '-' + 'none')
+                            read_annotation[name].add(anno + '.' + 'none')
                         except TypeError:
                             read_annotation[name].add('Unassigned_NoFeatures-none')
 
