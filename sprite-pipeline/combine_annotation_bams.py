@@ -34,8 +34,8 @@ def main():
     # output_bam = "/mnt/data/RNA_DNA_SPRITE/featureCounts/PB49.RNA.hisat2.mapq20.anno.bam"
 
     opts = parse_args()
-# opts.input_
-    anno_dict = get_annotation(bams)
+
+    anno_dict = get_annotation(opts.input_bams)
     anno_clean = clean_annotation(anno_dict)
     add_annotation(opts.input_bam, opts.output_bam, anno_clean)
 
