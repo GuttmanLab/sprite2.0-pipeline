@@ -113,6 +113,7 @@ try:
     RNA_aligner = config['rna_aligner']
     if RNA_aligner == 'hisat2':
         hisat2_index = config['hisat2_index'][config['assembly']]
+        hisat2_ss = config['hisat2_splice_sites'][config['assembly']]
     print('Using', RNA_aligner, 'for RNA alignment')
 except:
     print('RNA aligner not specified in config.yaml')
@@ -329,18 +330,21 @@ rule adaptor_trimming_pe:
         {input} &> {log}"
 
 
-#Trim DPM RPM if read through reads
-#TODO: Would be nice to run fastqc after this
-#RPM from right ATCAGCACTTA
-#DPM from right GATCGGAAGAG
-#DPM from left GGTGGTCTT ^ anchored (only appears at the start of read)
-# DPM5bot2-B1    /5Phos/TGACTTGTCATGTCTTCCGATCTGGTGGTCTTT
-# DPM5bot3-C1    /5Phos/TGACTTGTCATGTCTTCCGATCTGCCTCTTGTT
-# DPM5bot26-B4   /5Phos/TGACTTGTCATGTCTTCCGATCTCCAGGTATTT
-# DPM5bot44-D6   /5Phos/TGACTTGTCATGTCTTCCGATCTTAAGAGAGTT
-# DPM5bot85-E11  /5Phos/TGACTTGTCATGTCTTCCGATCTTTCTCCTCTT
-# DPM5bot95-G12  /5Phos/TGACTTGTCATGTCTTCCGATCTACCCTCGATT
+
 rule cutadapt:
+    '''
+    Trim DPM RPM if read through reads
+    TODO: Would be nice to run fastqc after this
+    RPM from right ATCAGCACTTA
+    DPM from right GATCGGAAGAG
+    DPM from left GGTGGTCTT ^ anchored (only appears at the start of read)
+    DPM5bot2-B1    /5Phos/TGACTTGTCATGTCTTCCGATCTGGTGGTCTTT
+    DPM5bot3-C1    /5Phos/TGACTTGTCATGTCTTCCGATCTGCCTCTTGTT
+    DPM5bot26-B4   /5Phos/TGACTTGTCATGTCTTCCGATCTCCAGGTATTT
+    DPM5bot44-D6   /5Phos/TGACTTGTCATGTCTTCCGATCTTAAGAGAGTT
+    DPM5bot85-E11  /5Phos/TGACTTGTCATGTCTTCCGATCTTTCTCCTCTT
+    DPM5bot95-G12  /5Phos/TGACTTGTCATGTCTTCCGATCTACCCTCGATT
+    '''
     input:
         ["workup/trimmed/{sample}_R1_val_1.fq.gz", 
         "workup/trimmed/{sample}_R2_val_2.fq.gz"]
@@ -400,9 +404,12 @@ rule cat_ligation_efficiency:
     shell:
         "tail -n +1 {input} > {output}"
 
+
 #TODO: this breaks the DNA-DNA pipeline
-#split rpm and dpm will also remove incomplete barcodes
 rule split_rpm_dpm:
+    '''
+    split rpm and dpm will also remove incomplete barcodes
+    '''
     input:
         "workup/fastqs/{sample}_R1.barcoded.fastq.gz"
     output:
@@ -418,9 +425,13 @@ rule split_rpm_dpm:
 ############################################################################################
 #DNA alignment
 ############################################################################################
-#MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
-#-F: Do not output alignments with any bits set in INT present in the FLAG field
+
+
 rule bowtie2_align:
+    '''
+    MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
+    -F: Do not output alignments with any bits set in INT present in the FLAG field
+    '''
     input:
         fq="workup/fastqs/{sample}_R1.barcoded_dpm.fastq.gz"
     output:
@@ -493,7 +504,7 @@ rule star_align_dna:
          '''
 
 
-
+#OPTIONAL: split this into 3 separate rules to make it run faster
 rule annotate_dna:
     input:
         "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam"
@@ -564,52 +575,58 @@ rule combine_annotations_dna:
 ############################################################################################
 
 
-#Align RNA with STAR to the genome first, annotate repeats, 
-#anything that does not align, realign with bowtie2 to our repeats reference
+
 rule star_align_rna:
-     input:
-        #  fq = "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
-         fq = "workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
-     output:
-         "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
-         "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam",
-         "workup/alignments/{sample}.RNA.Log.final.out",
-         "workup/alignments/{sample}.RNA.Log.out",
-         "workup/alignments/{sample}.RNA.Log.progress.out",
-         "workup/alignments/{sample}.RNA.SJ.out.tab",
-         "workup/alignments/{sample}.RNA.unmapped.fastq.gz"
-     log:
-         "workup/logs/{sample}.RNA.star.log"
-     threads: 10
-     conda:
-        'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
-        'envs/star_hg19.yaml'
-     shell:
-         '''
-         STAR {RNA_star_params} \
-         --runThreadN {threads} \
-         --genomeDir {star_index} \
-         --readFilesIn {input.fq} \
-         --outFileNamePrefix workup/alignments/{wildcards.sample}.RNA. &> {log}
+    '''
+    Align RNA with STAR to the genome first, annotate repeats, 
+    anything that does not align, realign with bowtie2 to our repeats reference
+    '''
+    input:
+    #  fq = "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
+        fq = "workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
+    output:
+        "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
+        "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.bam",
+        "workup/alignments/{sample}.RNA.Log.final.out",
+        "workup/alignments/{sample}.RNA.Log.out",
+        "workup/alignments/{sample}.RNA.Log.progress.out",
+        "workup/alignments/{sample}.RNA.SJ.out.tab",
+        "workup/alignments/{sample}.RNA.unmapped.fastq.gz"
+    log:
+        "workup/logs/{sample}.RNA.star.log"
+    threads: 10
+    conda:
+    'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
+    'envs/star_hg19.yaml'
+    shell:
+        '''
+        STAR {RNA_star_params} \
+        --runThreadN {threads} \
+        --genomeDir {star_index} \
+        --readFilesIn {input.fq} \
+        --outFileNamePrefix workup/alignments/{wildcards.sample}.RNA. &> {log}
 
-         mv workup/alignments/{wildcards.sample}.RNA.Unmapped.out.mate1 \
-             workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
+        mv workup/alignments/{wildcards.sample}.RNA.Unmapped.out.mate1 \
+            workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
 
-         pigz workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
+        pigz workup/alignments/{wildcards.sample}.RNA.unmapped.fastq
 
-         samtools view -bq 20 workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.bam > \
-             workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam
-         '''
+        samtools view -bq 20 workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.bam > \
+            workup/alignments/{wildcards.sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam
+        '''
 
 
-#from clusterflow pipeline
-# we are currently using a very high penalty score for soft-clipping (--sp 1000,1000)
-#because Hisat2 seems to soft-clip even when it should run in --end-to-end mode
-# we are also filtering out unmapped reads (-F 4), or reads where the mate was unmapped (-F 8)
-# we are also filtering non-primary alignments (-F 256)
-#filter on mapq score of 20 (Skip alignments with MAPQ smaller than 20)
-#-U FILE Write alignments that are not selected by the various filter options to FILE
+
 rule hisat2_align:
+    '''
+    #from clusterflow pipeline
+    # we are currently using a very high penalty score for soft-clipping (--sp 1000,1000)
+    #because Hisat2 seems to soft-clip even when it should run in --end-to-end mode
+    # we are also filtering out unmapped reads (-F 4), or reads where the mate was unmapped (-F 8)
+    # we are also filtering non-primary alignments (-F 256)
+    #filter on mapq score of 20 (Skip alignments with MAPQ smaller than 20)
+    #-U FILE Write alignments that are not selected by the various filter options to FILE
+    '''
     input:
         fq="workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
     output:
@@ -625,13 +642,12 @@ rule hisat2_align:
     log:
         "workup/logs/{sample}.hisat2.log"
     shell:
-        #--no-mixed \
-        # --no-discordant $splices \
         '''
         (hisat2 --sp 1000,1000 \
         -p 10 \
         -t \
         --phred33 \
+        --known-splicesite-infile {hisat2_ss} \
         -x {hisat2_index} \
         -U {input.fq} | \
         samtools view -b -F 256 - > {output.all_reads}) &> {log}
@@ -644,24 +660,27 @@ rule hisat2_align:
 
 
 
-#   -M                  Multi-mapping reads will also be counted. For a multi-
-#                       mapping read, all its reported alignments will be 
-#                       counted. The 'NH' tag in BAM/SAM input is used to detect 
-#                       multi-mapping reads.
-#   -s <int or string>  Perform strand-specific read counting. A single integer
-#                       value (applied to all input files) or a string of comma-
-#                       separated values (applied to each corresponding input
-#                       file) should be provided. Possible values include:
-#                       0 (unstranded), 1 (stranded) and 2 (reversely stranded).
-#                       Default value is 0 (ie. unstranded read counting carried
-#                       out for all input files).
-#   -t <string>         Specify feature type in GTF annotation. 'exon' by 
-#                       default. Features used for read counting will be 
-#                       extracted from annotation using the provided value.
-# -g <string>         Specify attribute type in GTF annotation. 'gene_id' by 
-#                       default. Meta-features used for read counting will be 
-#                       extracted from annotation using the provided value.
+
 rule annotate_rna:
+    '''
+    -M                  Multi-mapping reads will also be counted. For a multi-
+                        mapping read, all its reported alignments will be 
+                        counted. The 'NH' tag in BAM/SAM input is used to detect 
+                        multi-mapping reads.
+    -s <int or string>  Perform strand-specific read counting. A single integer
+                        value (applied to all input files) or a string of comma-
+                        separated values (applied to each corresponding input
+                        file) should be provided. Possible values include:
+                        0 (unstranded), 1 (stranded) and 2 (reversely stranded).
+                        Default value is 0 (ie. unstranded read counting carried
+                        out for all input files).
+    -t <string>         Specify feature type in GTF annotation. 'exon' by 
+                        default. Features used for read counting will be 
+                        extracted from annotation using the provided value.
+    -g <string>         Specify attribute type in GTF annotation. 'gene_id' by 
+                        default. Meta-features used for read counting will be 
+                        extracted from annotation using the provided value.
+        '''
     input:
         "workup/alignments/{sample}.RNA.hisat2.mapq20.bam"
     threads: 10
@@ -840,7 +859,7 @@ rule add_tags_bowtie2:
     conda:
         'envs/rna_repeats.yaml'
     shell:'''
-        samtools sort -T tmp -@ {threads} -o {output.sort} {input}
+        samtools sort -T {wildcards.sample} -@ {threads} -o {output.sort} {input}
         samtools index {output.sort}
 
         python {atttb} -i {output.sort} -o {output.out}

@@ -47,10 +47,15 @@ bowtie2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6"
     psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/CAST_EiJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_CAST_EiJ_129S1_SvImj_N-masked"
     psm33: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/C57BL_6NJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_C57BL_6NJ_129S1_SvImJ_N-masked"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38"
 bowtie2_repeat_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/repetitive_sequences_20190828"
 hisat2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38"
+hisat2_splice_sites:
+    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/Mus_musculus.GRCm38.95.ss"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/Homo_sapiens.GRCh38.97.ss"
 snp_file:
     psm33: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_129S1_SvImJ_SNPs_C57BL_6NJ_reference.based_on_GRCm38.txt"
     psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/all_129S1_SvImJ_SNPs_CAST_EiJ_reference.based_on_GRCm38.txt"
