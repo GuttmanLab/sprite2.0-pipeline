@@ -35,7 +35,7 @@ class Position:
 
     def to_string(self):
         try:
-            out = self._type + "(" + self._feature + ")" + "_" + \
+            out = self._type + "[" + self._feature + "]" + "_" + \
                 self._chromosome + ":" + \
                 str(self._start_coordinate) + "-" + str(self._end_coordinate)
         except:

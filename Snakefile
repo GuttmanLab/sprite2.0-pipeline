@@ -582,7 +582,7 @@ rule star_align_rna:
     anything that does not align, realign with bowtie2 to our repeats reference
     '''
     input:
-    #  fq = "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
+         #  fq = "workup/alignments/{sample}.RNAr.unmapped.fastq.gz"
         fq = "workup/fastqs/{sample}_R1.barcoded_rpm.fastq.gz"
     output:
         "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam",
@@ -596,8 +596,8 @@ rule star_align_rna:
         "workup/logs/{sample}.RNA.star.log"
     threads: 10
     conda:
-    'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
-    'envs/star_hg19.yaml'
+        'envs/star.yaml' if assembly == 'mm10' or assembly == 'hg38' else 
+        'envs/star_hg19.yaml'
     shell:
         '''
         STAR {RNA_star_params} \
