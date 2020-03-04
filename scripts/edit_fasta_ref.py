@@ -1,10 +1,17 @@
 
 # from babrahamlinkon.general import fasta_parse
 
-ncrna = '/mnt/data/genomes/custom/ncRNAs/ribornaandsmallrnas.fa'
+#%%
+import re
 
-new_ncrna = '/mnt/data/genomes/custom/ncRNAs/ribornaandsmallrnas_simple.fa'
 
+ncrna = '/mnt/data/genomes/GRCm38.p6/repeats/ribornaandsmallrnas.fa'
+
+new_ncrna = '/mnt/data/genomes/GRCm38.p6/repeats/ribornaandsmallrnas_simple.fa'
+
+human_repeats = '/mnt/data/genomes/GRCh38/repeats/Hs_repeats.txt'
+
+#%%
 total_len = 0
 with open(ncrna,'r') as fa, \
 open(new_ncrna, 'w') as out_fa:
@@ -33,7 +40,7 @@ open(new_ncrna, 'w') as out_fa:
             len_out += 80
 print(total_len) #use for STAR genome size
 
-
+#%%
 def fasta_parse(fp):
     '''Parse fasta files
 
@@ -63,3 +70,39 @@ def fasta_parse(fp):
             raise Exception('Input starts with @ suggesting this is a fastq no fasta')
         else:
             seq += rec
+
+
+
+
+
+all_ncrna = '/mnt/data/genomes/GRCm38.p6/repeats/repetitive_sequences.fa'
+total_len = 0
+with open(all_ncrna, 'r') as in_fa:
+    for name, seq in fasta_parse(in_fa):
+        total_len += len(seq)
+#1701231
+
+
+
+
+trna = '/mnt/data/genomes/GRCm38.p6/repeats/mm10-tRNAs.fa'
+out_trna = '/mnt/data/genomes/GRCm38.p6/repeats/mm10-tRNAs_simple.fa'
+with open(trna, 'r') as in_fa, \
+open(out_trna, 'w') as out_fa:
+    for qname, seq in fasta_parse(in_fa):
+        main, *_, position, strand = qname.split(' ')
+        new_qname = main + '|' + position + '|' + strand
+        out_fa.write(new_qname + '\n' + seq + '\n')
+
+#%%
+total_len = 0
+with open(human_repeats) as in_file, \
+open('/mnt/data/genomes/GRCh38/repeats/Hs_repeats_simple.fasta', 'w') as out_fa:
+    for qname, seq in fasta_parse(in_file):
+        gene_name = re.findall("\((.*?)\)", qname)
+        accession = qname[1:].split(' ')[0]
+        out_fa.write('>' + '_'.join(gene_name) + ',' + accession + '\n' + seq + '\n')
+        total_len += len(seq)
+
+print(total_len)
+#%%

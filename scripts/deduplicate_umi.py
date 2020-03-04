@@ -18,7 +18,7 @@ Group sequences with the same UMI (9 nt UMI followed by CAAGTCA). Perform MSA to
 consensus sequence/quality and write out. Bundles (UMI groups) that have very different sequences
 are filtered out.
 '''
-
+'test'[-2:]
 #%%
 def make_bundle(fastq, umi_len, orientation='r1'):
     '''bundle reads using umi sequence
@@ -474,7 +474,12 @@ def main():
     #examine bundles to check for extremely large umi clusters that are causing memory leaks
     # test_bundle = make_bundle('/mnt/data/20190621_PB_PC_SQ/assembled/PB-PC_S2_L001_R1_001_val_1.assembled.fastq.gz', umi_len=16, orientation='r2')
     largest_bundle = max([len(i['seq']) for i in read_bundles_all[0].values()])
-    print('Largest cluster:', largest_bundle)
+
+    
+    for k, v in read_bundles_all[0].items():
+        if len(v['seq']) == largest_bundle:
+            largest_key = k
+    print('Largest cluster:', largest_bundle, largest_key)
 
 
     #cap cluster sizes at 1000 to avoid memory leak warnings

@@ -4,6 +4,10 @@ email: "pchovanec@lncrna.caltech.edu"
 bID: "./config.txt"
 #Type of SPRITE to analyse: "RNA-DNA" or "DNA-DNA"
 type: "RNA-DNA"
+#Location of the samples json file produced with fastq2json.py script
+samples: "/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/samples.json"
+#output directory
+output_dir: "/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/"
 #Currently "mm10","hg19" and "hg38" available
 assembly: "mm10"
 #Number of barcodes used (this includes DPM/RPM for RNA-DNA)
@@ -33,16 +37,16 @@ anno_gtf:
 #Only intron exon annotation
 exon_intron_gtf:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.exon_intron.gtf.gz"
-#Annotation GTF of TE repeats from Hammell lab used for featureCounts
+#Annotation GTF of rmsk repeats and tRNAs used for featureCounts
 anno_repeats_gtf:
-    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/GRCm38_rmsk_TE_tRNA.gtf.gz"
+    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/GRCm38_rmsk_tRNA.gtf.gz"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/GRCh38_rmsk_TE_all_id.gtf.gz"
 #Repeat mask used for filtering DNA contacts
 mask:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
     hg19: "/groups/guttman/genomes/combinations/hg19_mm9/masks/hg19-mm9.gatk35-and-rmsk140.bed"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/hg38_blacklist_rmsk140millidev.bed"
-#Other indexes currently not used
+#Other indexes
 bowtie2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6"
     psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/CAST_EiJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_CAST_EiJ_129S1_SvImj_N-masked"

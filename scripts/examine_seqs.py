@@ -1,5 +1,5 @@
 
-from babrahamlinkon.general import file_open, fastq_parse
+# from babrahamlinkon.general import file_open, fastq_parse
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -8,6 +8,7 @@ import re
 from colorama import Fore, Style
 from collections import defaultdict
 import argparse
+import gzip
 
 # in_fq_path = '/mnt/data/SPRITEzero_complexes/trimmed/assembled/25000_S1_L001_R1_001_val_1_assembled_rv_bID.fastq.gz'
 # in_fq_path_new = '/mnt/data/20190509_newadaptsprite0/workup/assembled/100_S1_L001_R1_001_val_1_assembled_rv.fastq_bID.fq.gz'
@@ -25,8 +26,10 @@ import argparse
 def parse_args():
 
     parser = argparse.ArgumentParser(description='Examine sticky ends within sequences')
-    parser.add_argument('--r2', dest='read_2', type=str, required=True,
+    parser.add_argument('--r2', dest='read_2', type=str, required=False,
                         help='Fastq read 2 - looks for bottom sticky ends')
+    parser.add_argument('--r1', dest='read_1', type=str, required=False,
+                        help='Fastq read 1 - looks for top sticky ends')
     parser.add_argument('--max', dest='max', type=int, required=False, default=0,
                         help='Either the number of barcodes (examine sequences with only 4 barcodes) \
                         or max length of sequences to examine. (0)')
@@ -36,6 +39,8 @@ def parse_args():
                         default=8, help='Number of barcoding rounds/tags (8)')
     parser.add_argument('--printn', dest='printn', type=int, required=False,
                         default=100, help='Number of annotated sequences to print (100)')
+    parser.add_argument('--oddeven', dest='oddeven', required=False, action='store_true',
+                        help='Use Odd Even barcoding scheme')
     opts = parser.parse_args()
 
     return opts
@@ -45,8 +50,15 @@ def main():
 
     opts = parse_args()
 
-    seq_dict = get_seq_to_anno(opts.read_2, min=opts.min, max=opts.max, number_of_barcodes=opts.tags)
-    print_anno_seq(seq_dict, opts.printn)
+    if opts.read_1 != None:
+        read = opts.read_1
+        orient = 'r1'
+    elif opts.read_2 != None:
+        read = opts.read_2
+        orient = 'r2'
+
+    seq_dict = get_seq_to_anno(read, min=opts.min, max=opts.max, number_of_barcodes=opts.tags)
+    print_anno_seq(seq_dict, opts.oddeven, opts.printn, orientation = orient)
 
 
 
@@ -83,7 +95,7 @@ def get_seq_to_anno(fastq_path, min=0, max=0, number_of_barcodes=8):
 # 1648911/2345224
 #0.7030931800118028 correct length
 
-def print_anno_seq(seq_dict, num_print=100):
+def print_anno_seq(seq_dict, oddeven, num_print=100, orientation='r2'):
     '''Print annotation of sequences in dictionary
 
     Args:
@@ -97,7 +109,7 @@ def print_anno_seq(seq_dict, num_print=100):
         if count < num_print:
             for seq in v:
                 if count < num_print:
-                    anno_seqs.append(sticky2ansi(seq))
+                    anno_seqs.append(sticky2ansi(seq, oddeven, orientation))
                     count += 1
                 else:
                     break
@@ -183,7 +195,7 @@ def str2ansi(barcodes, str_to_annotate):
 
 
 
-def sticky2ansi(seq):
+def sticky2ansi(seq, oddeven=False, orientation='r2'):
     '''Add ANSI codes into string based on location of sticky ends
     '''
     bc_colors = [Fore.MAGENTA, Fore.RED, Fore.YELLOW, Fore.BLACK, Fore.BLUE,
@@ -195,7 +207,17 @@ def sticky2ansi(seq):
     # regex.search("(?e)(dog){e<=1}", "cat and dog")[1] returns "dog"
     # (without a leading space) because the fuzzy search matches " dog" with 1 error,
     # which is within the limit, and the (?e) then it attempts a better fit.
-    regex_se = regex.compile(r"(?e)(TGACTTG){e<=1}|(?e)(ACGAGAG){e<=1}|(?e)(CAACAGC){e<=1}|(?e)(ATCTGCT){e<=1}|(?e)(GCTGATA){e<=1}|(?e)(TTGACGT){e<=1}|(?e)(GAGCGTT){e<=1}|(?e)(GGCATAC){e<=1}", regex.I)
+    if orientation == 'r2':
+        if oddeven:
+            regex_se = regex.compile(r"(?e)(TGACTTG){e<=1}|(?e)(GACAACT){e<=1}", regex.I)
+        else:
+            regex_se = regex.compile(r"(?e)(TGACTTG){e<=1}|(?e)(ACGAGAG){e<=1}|(?e)(CAACAGC){e<=1}|(?e)(ATCTGCT){e<=1}|(?e)(GCTGATA){e<=1}|(?e)(TTGACGT){e<=1}|(?e)(GAGCGTT){e<=1}|(?e)(GGCATAC){e<=1}", regex.I)
+    elif orientation == 'r1':
+        if oddeven:
+            regex_se = regex.compile(r"(?e)(CAAGTCA){e<=1}|(?e)(AGTTGTC){e<=1}", regex.I)
+        else:
+            regex_se = regex.compile(r"(?e)(CAAGTCA){e<=1}|(?e)(CTCTCGT){e<=1}|(?e)(GCTGTTG){e<=1}|(?e)(AGCAGAT){e<=1}|(?e)(TATCAGC){e<=1}|(?e)(ACGTCAA){e<=1}|(?e)(AACGCTC){e<=1}|(?e)(GTATGCC){e<=1}", regex.I)
+    
 
     i = 0; output = ''
     for m in regex_se.finditer(seq):
@@ -208,6 +230,61 @@ def sticky2ansi(seq):
     return ''.join([output, seq[i:]])
 
 
+def file_open(filename):
+    """
+    Open as normal or as gzip
+    Faster using zcat?
+    """
+    #does file exist?
+    f = open(filename,'rb')
+    if (f.read(2) == b'\x1f\x8b'): #compressed alsways start with these two bytes
+        f.seek(0) #return to start of file
+        return gzip.GzipFile(fileobj=f, mode='rb')
+    else:
+        f.seek(0)
+        return f
+
+
+def fastq_parse(fp):
+    """
+    Parse fastq file.
+    """
+    linecount = 0
+    name, seq, thrd, qual = [None] * 4
+    for line in fp:
+
+        linecount += 1
+        if linecount % 4 == 1:
+            try:
+                name = line.decode('UTF-8').rstrip()
+            except AttributeError:
+                name = line.rstrip()
+            assert name.startswith('@'),\
+                   "ERROR: The 1st line in fastq element does not start with '@'.\n\
+                   Please check FastQ file near line number %s" % (linecount)
+        elif linecount % 4 == 2:
+            try:
+                seq = line.decode('UTF-8').rstrip()
+            except AttributeError:
+                seq = line.rstrip()
+        elif linecount % 4 == 3:
+            try:
+                thrd = line.decode('UTF-8').rstrip()
+            except AttributeError:
+                thrd = line.rstrip()
+            assert thrd.startswith('+'),\
+                   "ERROR: The 3st line in fastq element does not start with '+'.\n\
+                   Please check FastQ file near line number %s" % (linecount)
+        elif linecount % 4 == 0:
+            try:
+                qual = line.decode('UTF-8').rstrip()
+            except AttributeError:
+                qual = line.rstrip()
+            assert len(seq) == len(qual),\
+                    "ERROR: The length of Sequence and Quality aren't equal.\n\
+                    Please check FastQ file near line number %s" % (linecount)
+            yield name, seq, thrd, qual,
+            name, seq, thrd, qual = [None] * 4
 
 if __name__ == "__main__":
     main()

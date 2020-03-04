@@ -3,9 +3,8 @@ import cluster as c
 
 def main():
     args = parse_arguments()
-    clusters = c.get_clusters(args.input, args.num_tags, args.genome_1, 
-                              args.genome_2)
-    c.write_clusters_to_file(clusters, args.output)
+    clusters = c.parse_cluster(args.input)
+    c.write_bam(clusters, args.num_tags, args.bam, args.output, args.genome_1, args.genome_2)
     print("done")
 
 def parse_arguments():
@@ -14,14 +13,19 @@ def parse_arguments():
     parser.add_argument('-i', '--input',
                         metavar = "FILE",
                         action = "store",
-                        nargs='+',
                         required=True,
-                        help = "The input BAM file(s).")
+                        help = "The input cluster file.")
+    parser.add_argument('-b', '--bam',
+                        metavar = "FILE",
+                        action = "store",
+                        required=True,
+                        help = "The BAM file used to create cluster file, \
+                                or with reads of interest.")
     parser.add_argument('-o', '--output',
                         metavar = "FILE",
                         action = "store",
                         required=True,
-                        help = "The output clusters file.")
+                        help = "The output BAM file.")
     parser.add_argument('-n', '--num_tags',
                         metavar = 'INT',
                         type = int,
@@ -39,6 +43,7 @@ def parse_arguments():
                         action = 'store',
                         default = "None",
                         help = "Genome 2 strain used with SNPsplit")
+
     return parser.parse_args()
 
 if __name__ == "__main__":

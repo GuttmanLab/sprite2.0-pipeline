@@ -3,6 +3,7 @@ import re
 import gzip
 import os
 import sys
+from collections import defaultdict, Counter
 
 class Position:
     """This class represents a genomic position, with type of nucleic acid (RNA or DNA)
@@ -12,8 +13,8 @@ class Position:
       "R/DPM(feature)_chrX:1000"
     """
 
-    def __init__(self, type, feature, chromosome, start_coordinate, end_coordinate):
-        self._type = type
+    def __init__(self, read_type, feature, chromosome, start_coordinate, end_coordinate):
+        self._type = read_type
         self._feature = feature
         self._chromosome = chromosome
         self._start_coordinate = start_coordinate
@@ -78,6 +79,8 @@ class Cluster:
     - to_string(): Returns a string representation of this cluster as a
       tab-delimtited series of positions. See Position#to_string for how
       positions are represented as strings.
+
+    - to_list(): Returns the Position class as a list (similar to_string())
     """
 
     def __init__(self):
@@ -93,6 +96,14 @@ class Cluster:
         position_strings = [position.to_string() for position in self._positions]
         return "\t".join(position_strings)
 
+    def to_list(self):
+        position_strings = [position.to_string() for position in self._positions]
+        return position_strings
+
+    def count_type(self):
+        rna_dna_count = Counter([position._type for position in self._positions])
+        return rna_dna_count
+
 
 class Clusters:
     """This class represents a collection of barcoding clusters.
@@ -102,20 +113,40 @@ class Clusters:
       barcode. If the cluster does not exist, it is initialized (with zero
       positions), and this cluster.to_string()cluster.to_string()cluster.to_string()cluster.to_string()cluster.to_string()empty cluster is returned.
 
+    - get_items(): iterate over clusters dictionary yielding keys and values
+
     - add_position(barcode, position): Adds the position to the cluster
       that corresponds with the given barcodes
 
     - to_strings(): Returns an iterator over the string representations of all
       of the contained clusters.
+
+    - remove_cluster(barcode): Removes a cluster with the specified barcode
+
+    - add_umi(barcode, umi): Used for fastq to cluster format, will used umi
+      instead of position coordinates
+
+    - unique(): keep only unique cluster entries
+
+    - make_lookup(): make a lookup table for converting cluster back into bam
     """
     def __init__(self):
         self._clusters = {}
+
+    def __iter__(self):
+        return iter(self._clusters.values())
+
+    def __getitem__(self, barcode):
+        return self._clusters[barcode]
 
     def get_cluster(self, barcode):
         if barcode not in self._clusters:
             self._clusters[barcode] = Cluster()
         return self._clusters[barcode]
 
+    def get_items(self):
+        return self._clusters.items()
+    
     def add_position(self, barcode, position):
         self.get_cluster(barcode).add_position(position)
 
@@ -138,6 +169,21 @@ class Clusters:
         for barcode, cluster in self._clusters.items():
             yield barcode + '\t' + cluster.unique()
 
+    def make_lookup(self):
+        lookup = defaultdict(set)
+        for barcode, cluster in self._clusters.items():
+            lookup[barcode].update(cluster.to_list())
+        return lookup
+
+
+# test = Clusters()
+# test.add_position('ewafa', Position('DPM', 'blabla', 'chr1', '123', '132',))
+# for k, v in test.get_items():
+#     print(k, v)
+# for i in test:
+#     print(i)
+# test['ewafa']
+# test['ewafa'].count_type()
 
 
 def get_clusters(bamfile, num_tags, genome_1, genome_2):
@@ -343,21 +389,126 @@ def file_open(filename):
         f.seek(0)
         return f
 
-#
-#
-# count = 0
-# with pysam.AlignmentFile("/mnt/data/2p5-4.RNA.Aligned.sortedByCoord.out.bam.featureCounts.bam", "rb") as f:
-#
-#     for read in f.fetch(until_eof = True):
-#         if count < 50:
-#
-#             if read.has_tag('XT'):
-#                 anno = read.get_tag('XT')
-#             elif read.has_tag('XS'):
-#                 anno = read.get_tag('XS')
-#             else:
-#                 raise Exception('XS tag missing, was featureCounts run?')
-#             count += 1
-#             print(anno)
-#         else:
-#             break
+
+
+def parse_cluster(c_file):
+    '''
+    Parse cluster file
+
+    Args:
+        c_file(str): input path of cluster file
+    '''
+
+    total_reads = 0
+    clusters = Clusters()
+    pattern = re.compile('([a-zA-Z0-9]+)\[([a-zA-Z0-9_;\:\,\-\+\.\(\)\?]+)\]_([a-zA-Z0-9_\:\-\.\,\(\)]+):([0-9]+)\-([0-9]+)')
+    # match = pattern.search('DPM[UA;-;Ralbp1.intron;Unassigned_NoFeatures.none]_chr17:65883728-65883812')
+    
+    with file_open(c_file) as c:
+        for line in c:
+
+            barcode, *reads = line.decode('utf-8').rstrip('\n').split('\t')
+
+            for read in reads:
+                total_reads += 1
+                try:
+                    match = pattern.search(read)
+                    n_type, anno, chrom, start, end = match.groups()
+                    position = Position(n_type, anno, chrom, start, end)
+                    clusters.add_position(barcode, position)
+                except:
+                    print(read)
+                    raise Exception('Pattern did not match above printed string')
+    print('Total cluster reads:', total_reads)
+    return(clusters)
+
+
+
+def write_bam(cluster, num_tags, original_bam, output_bam, genome_1, genome_2):
+    '''From a cluster make/subset bam file
+    If barcode, chrom, start and end coordinates match, write out read into new BAM
+
+    Args:
+        cluster(Clusters): 
+    '''
+
+    #get sample name from bamfile
+    file_name = os.path.basename(original_bam)
+    sample_name = file_name.split('.')[0]
+
+    pattern = re.compile('::' + num_tags * '\[([a-zA-Z0-9_\-]+)\]')
+
+    #get genome build
+    if 'hg38' in file_name:
+        assembly = 'hg38'
+    elif 'mm10' in file_name:
+        assembly = 'mm10'
+
+    read_lookup = cluster.make_lookup()
+    out_reads = 0
+    with pysam.AlignmentFile(original_bam, "rb") as in_bam:
+        out_bam = pysam.AlignmentFile(output_bam, "wb", template = in_bam)
+        for read in in_bam.fetch(until_eof = True):
+            name = read.query_name
+            match = pattern.search(name)
+            barcode = list(match.groups())
+            strand = '+' if not read.is_reverse else '-'
+            if 'RPM' in barcode:
+                #get featureCounts annotation
+                if read.has_tag('XT'):
+                    anno = read.get_tag('XT')
+                elif read.has_tag('XS'):
+                    anno = read.get_tag('XS')
+                else:
+                    raise Exception('XS tag missing, was featureCounts run?')
+
+                position = Position('RPM', anno, read.reference_name,
+                                    read.reference_start, read.reference_end)
+                barcode.remove('RPM')
+
+            elif 'DPM' in barcode:
+                #add SNPSPLIT results into annotation
+                # XX:Z:G1
+                if read.has_tag('XX'):
+                    allele = read.get_tag('XX')
+                    if genome_1 != "None" and genome_2 != "None":
+                        if allele == "G1":
+                            allele = genome_1
+                        elif allele == "G2":
+                            allele = genome_2
+                    st_anno = allele + ';' + strand 
+                else:
+                    st_anno = strand
+
+                if read.has_tag('XT'):
+                    gene_anno = read.get_tag('XT')
+                elif read.has_tag('XS'):
+                    gene_anno = read.get_tag('XS')
+                else:
+                    gene_anno = ''
+
+                if len(gene_anno) == 0:
+                    anno = st_anno
+                else:
+                    anno = st_anno + ';' + gene_anno
+
+                position = Position('DPM', anno, read.reference_name,
+                                    read.reference_start, read.reference_end)
+                barcode.remove('DPM')
+                    
+                    
+            barcode.append(sample_name)
+            barcode_str = ".".join(barcode)
+
+            barcode_reads = read_lookup.get(barcode_str, "Not present")
+         
+            if position.to_string() in barcode_reads:
+                out_bam.write(read)
+                out_reads += 1 
+
+    out_bam.close()
+    print('Total reads written:', out_reads)
+
+
+
+
