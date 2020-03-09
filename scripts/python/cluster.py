@@ -111,7 +111,7 @@ class Clusters:
     Methods:
     - get_cluster(barcode): Returns the cluster that corresponds to the given
       barcode. If the cluster does not exist, it is initialized (with zero
-      positions), and this cluster.to_string()cluster.to_string()cluster.to_string()cluster.to_string()cluster.to_string()empty cluster is returned.
+      positions), and this empty cluster is returned.
 
     - get_items(): iterate over clusters dictionary yielding keys and values
 

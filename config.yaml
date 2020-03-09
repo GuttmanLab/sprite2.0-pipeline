@@ -9,13 +9,13 @@ samples: "/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/samples.json"
 #output directory
 output_dir: "/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/"
 #Currently "mm10","hg19" and "hg38" available
-assembly: "mm10"
+assembly: "hg38"
 #Number of barcodes used (this includes DPM/RPM for RNA-DNA)
 num_tags: "5"
 #Cell type for SNPsplit "psm44" or "psm33"
 cell: "psm44"
 #Run SNPsplit
-snpsplit: "True"
+snpsplit: "False"
 #Aligned for DNA "bowtie2" or "star", if running snpsplit the default is bowtie2
 dna_aligner: "bowtie2"
 #Aligned for RNA "hisat2" or "star"
@@ -23,37 +23,35 @@ rna_aligner: "hisat2"
 #Location of STAR aligner indexes
 star_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/star"
-    hg19: "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/star"
 star_repeat_index:
     mm10: "/groups/guttman/Peter/genomes/ncRNA/star"
-    hg19: "/groups/guttman/Peter/genomes/GRCh38/repeats/star"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/star"
 #Annotation GTF file used for featureCounts
 anno_gtf:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"
-    hg19: "/groups/guttman/genomes/homo_sapiens/hg19/STAR/hg19/gencode.v19.annotation.gtf"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/Homo_sapiens.GRCh38.97.gtf.gz"
 #Only intron exon annotation
 exon_intron_gtf:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.exon_intron.gtf.gz"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38.exon_intron.gtf.gz"
 #Annotation GTF of rmsk repeats and tRNAs used for featureCounts
 anno_repeats_gtf:
-    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/GRCm38_rmsk_tRNA.gtf.gz"
-    hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/GRCh38_rmsk_TE_all_id.gtf.gz"
+    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/mm10_rmskOutCurrent.gtf.gz"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/hg38_rmsk.gtf.gz"
 #Repeat mask used for filtering DNA contacts
 mask:
-    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/blacklist.rmsk.mm10.milliDivLessThan140.bed"
-    hg19: "/groups/guttman/genomes/combinations/hg19_mm9/masks/hg19-mm9.gatk35-and-rmsk140.bed"
-    hg38: "/groups/guttman/Peter/genomes/GRCh38/hg38_blacklist_rmsk140millidev.bed"
+    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/mm10_blacklist_rmsk.milliDivLessThan140.bed"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/hg38_blacklist_rmsk.milliDivLessThan140.bed"
 #Other indexes
 bowtie2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38"
     psm44: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/CAST_EiJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_CAST_EiJ_129S1_SvImj_N-masked"
     psm33: "/groups/guttman/Peter/genomes/GRCm38.p6/snpsplit/C57BL_6NJ_129S1_SvImJ_dual_hybrid.based_on_GRCm38_N-masked/GRCm38.p6_C57BL_6NJ_129S1_SvImJ_N-masked"
-    hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38"
 bowtie2_repeat_index:
-    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/repetitive_sequences_20190828"
+    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/repeats/mm_repetitive_sequences_20200109"
+    hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/Hs_repetitive_sequences_20200109"
 hisat2_index:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6"
     hg38: "/groups/guttman/Peter/genomes/GRCh38/GRCh38"

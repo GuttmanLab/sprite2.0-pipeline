@@ -9,13 +9,13 @@ import sys
 
 
 #Location of scripts
-barcode_id_jar = "sprite-pipeline/java/BarcodeIdentification_v1.2.0.jar"
-lig_eff = "sprite-pipeline/python/get_ligation_efficiency.py"
-split_fq = "sprite-pipeline/split_dpm_rpm_fq.py"
-atttb = "sprite-pipeline/add_tnx_tag_to_bam.py"
-add_chr = "sprite-pipeline/python/ensembl2ucsc.py"
-get_clusters = "sprite-pipeline/python/get_clusters.py"
-comb_anno = "sprite-pipeline/combine_annotation_bams.py"
+barcode_id_jar = "scripts/java/BarcodeIdentification_v1.2.0.jar"
+lig_eff = "scripts/python/get_ligation_efficiency.py"
+split_fq = "scripts/split_dpm_rpm_fq.py"
+atttb = "scripts/add_tnx_tag_to_bam.py"
+add_chr = "scripts/python/ensembl2ucsc.py"
+get_clusters = "scripts/python/get_clusters.py"
+comb_anno = "scripts/combine_annotation_bams.py"
 hicorrector = "scripts/HiCorrector_1.2/bin/ic"
 clusters_heatmap = "scripts/python/get_sprite_contacts.py"
 
@@ -31,45 +31,45 @@ configfile: config_path
 try:
     email = config['email']
 except:
-    # print("Won't send email on error")
+    print("Won't send email on error")
     email = None
 
 try:
     out_dir = config['output_dir']
-    # print('All data will be written to:', out_dir)
+    print('All data will be written to:', out_dir)
 except:
     out_dir = ''
-    # print('Defaulting to working directory as output directory')
+    print('Defaulting to working directory as output directory')
 
 try:
     bid_config = config['bID']
-    # print('Using BarcodeID config', bid_config)
+    print('Using BarcodeID config', bid_config)
 except:
     bid_config = 'workup/config.txt'
-    # print('Config "bID" not specified, looking for config at:', bid_config)
+    print('Config "bID" not specified, looking for config at:', bid_config)
 
 try:
     num_tags = config['num_tags']
-    # print('Using', num_tags, 'tags')
+    print('Using', num_tags, 'tags')
 except:
     num_tags = "5"
-    # print('Config "num_tags" not specified, using:', num_tags)
+    print('Config "num_tags" not specified, using:', num_tags)
 
 #Make pipeline compatible for multiple assemblies
 try:
     assembly = config['assembly']
     assert assembly in ['mm10', 'hg19', 'hg38'], 'Only "mm10" or "hg19" or "hg38" currently supported'
-    # print('Using', assembly)
+    print('Using', assembly)
 except:
-    # print('Config "assembly" not specified, defaulting to "mm10"')
+    print('Config "assembly" not specified, defaulting to "mm10"')
     assembly = 'mm10'
 
 try:
     sprite_type = config['type']
     assert sprite_type in ['DNA-DNA', 'RNA-DNA'], 'Only "DNA-DNA" or "RNA-DNA" currently supported'
-    # print(sprite_type, 'SPRITE')
+    print(sprite_type, 'SPRITE')
 except:
-    # print('Config "type" not specified, defaulting to "RNA-DNA"')
+    print('Config "type" not specified, defaulting to "RNA-DNA"')
     sprite_type = 'RNA-DNA'
 
 try:
@@ -78,43 +78,56 @@ try:
     mask = config['mask'][config['assembly']]
     exon_intron_gtf = config['exon_intron_gtf'][config['assembly']]
 except:
-    # print('Annotation or mask path not specified in config.yaml')
+    print('Annotation or mask path not specified in config.yaml')
     sys.exit() #no default, exit
 
 try:
     run_snpsplit = config['snpsplit']
-    # print('Running SNPsplit:', run_snpsplit)
+    print('Running SNPsplit:', run_snpsplit)
     if run_snpsplit == 'True':
         snp_file = config['snp_file'][config['cell']]
+        snpsplit_name = '.allele_flagged'
+        anno_out_dir = 'SNPsplit'
+    else:
+        snp_file = ''
+        run_snpsplit = False
+        snpsplit_name = ''
+        anno_out_dir = 'alignments'
 except:
-    # print('SNPsplit not specified in config, will not run')
+    print('SNPsplit not specified in config, will not run')
+    snp_file = ''
     run_snpsplit = False
+    snpsplit_name = ''
+    anno_out_dir = 'alignments'
+
 
 if run_snpsplit == 'True':
     try:
         g1 = config['snp_alleles'][config['cell']]['g1']
-        # print('Genome 1 strain:', g1)
+        print('Genome 1 strain:', g1)
     except:
-        # print('No strain specified for genome 1')
+        print('No strain specified for genome 1')
         g1 = None
 
     try:
         g2 = config['snp_alleles'][config['cell']]['g2']
-        # print('Genome 2 stain:', g2)
+        print('Genome 2 stain:', g2)
     except:
-        # print('No strain specified for genome 2')
+        print('No strain specified for genome 2')
         g2 = None    
-
+else:
+    g1 = None
+    g2 = None    
 
 try:
     DNA_aligner = config['dna_aligner']
-    # print('Using',DNA_aligner, 'for DNA alignment')
+    print('Using',DNA_aligner, 'for DNA alignment')
 except:
-    # print('DNA aligner not specified, defaulting to bowtie2')
+    print('DNA aligner not specified, defaulting to bowtie2')
     DNA_aligner = 'bowtie2'
 
 if run_snpsplit == 'True' and DNA_aligner == 'star':
-        # print('Running SNPsplit, will use Bowtie2')
+        print('Running SNPsplit, will use Bowtie2')
         DNA_aligner = "bowtie2"
 
 
@@ -123,9 +136,9 @@ try:
     if RNA_aligner == 'hisat2':
         hisat2_index = config['hisat2_index'][config['assembly']]
         hisat2_ss = config['hisat2_splice_sites'][config['assembly']]
-    # print('Using', RNA_aligner, 'for RNA alignment')
+    print('Using', RNA_aligner, 'for RNA alignment')
 except:
-    # print('RNA aligner not specified in config.yaml')
+    print('RNA aligner not specified in config.yaml')
     sys.exit()
 
 try:
@@ -133,7 +146,7 @@ try:
         star_index = config['star_index'][config['assembly']]
         star_repeat_index = config['star_repeat_index'][config['assembly']]
 except:
-    # print('STAR indexes path not specified in config.yaml')
+    print('STAR indexes path not specified in config.yaml')
     sys.exit() #no default, exit
 
 try:
@@ -144,7 +157,7 @@ try:
             bowtie2_index = config['bowtie2_index'][config['assembly']]
         bowtie2_repeat_index = config['bowtie2_repeat_index'][config['assembly']]
 except:
-    # print('Bowtie2 index not specified in config.yaml')
+    print('Bowtie2 index not specified in config.yaml')
     sys.exit() #no default, exit
 
 
@@ -241,13 +254,13 @@ CLUSTERS = expand(out_dir + "workup/clusters/{sample}.clusters", sample=ALL_SAMP
 #Bowtie2 alignment
 Bt2_DNA_ALIGN = expand(out_dir + "workup/alignments/{sample}.DNA.bowtie2.mapq20.bam", 
                        sample=ALL_SAMPLES)
-SNPSPLIT_DNA = expand(out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam", 
+SNPSPLIT_DNA = expand(out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20{snpsplit_name}.bam", 
                       sample=ALL_SAMPLES)
 Bt2_TAG_ALL = expand(out_dir + "workup/alignments/{sample}.RNAr.bowtie2.mapq20.tag.bam", 
                        sample=ALL_SAMPLES)
 Bt2_RNAr = expand(out_dir + "workup/alignments/{sample}.RNAr.bowtie2.mapq20.bam", 
                   sample=ALL_SAMPLES)
-DNA_COMBINE = expand(out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.anno.bam", 
+DNA_COMBINE = expand(out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.anno.bam", 
                      sample=ALL_SAMPLES)
 
 #Hisat2 alignment
@@ -470,18 +483,18 @@ rule snpsplit:
     input:
         out_dir + "workup/alignments/{sample}.DNA.bowtie2.mapq20.bam"
     output:
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam",
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.genome1.bam",
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.genome2.bam",
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.SNPsplit_report.txt",
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.SNPsplit_sort.txt",
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.unassigned.bam"
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20{snpsplit_name}.bam",
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.genome1.bam",
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.genome2.bam",
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.SNPsplit_report.txt",
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.SNPsplit_sort.txt",
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.unassigned.bam"
     log:
         out_dir + "workup/logs/{sample}.snpsplit.log"
     conda:
         "envs/snpsplit.yaml"
     shell:
-        "SNPsplit --snp_file {snp_file} -o {out_dir}workup/SNPsplit/ {input} &> {log}"
+        "SNPsplit --snp_file {snp_file} -o {out_dir}workup/{anno_out_dir}/ {input} &> {log}"
     
 
 rule star_align_dna:
@@ -530,21 +543,21 @@ rule annotate_dna:
     receives a count of 1 from a read (snoRNA's in introns of genes)
     '''
     input:
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam"
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20{snpsplit_name}.bam"
     threads: 10
     output:
-        bam_exon=out_dir + "workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
-        bam_intron=out_dir + "workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
-        counts_exon=out_dir + "workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.txt",
-        counts_intron=out_dir + "workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.txt",
-        bam_rrna=out_dir + "workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
-        counts_rrna=out_dir + "workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.txt"
+        bam_exon=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAex.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.bam",
+        bam_intron=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAin.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.bam",
+        counts_exon=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAex.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.txt",
+        counts_intron=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAin.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.txt",
+        bam_rrna=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAr.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.bam",
+        counts_rrna=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAr.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.txt"
     log:
         out_dir + "workup/logs/{sample}.anno.log"
     params:
-        ex_rename = out_dir + "workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam",
-        in_rename = out_dir + "workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam",
-        r_rename = out_dir + "workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam"
+        ex_rename = out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAex.bowtie2.mapq20{snpsplit_name}.bam",
+        in_rename = out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAin.bowtie2.mapq20{snpsplit_name}.bam",
+        r_rename = out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAr.bowtie2.mapq20{snpsplit_name}.bam"
     conda:
         "envs/annotate_rna.yaml"
     shell:
@@ -573,12 +586,12 @@ rule annotate_dna:
 
 rule combine_annotations_dna:
     input:
-        bam=out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.allele_flagged.bam",
-        bam_exon=out_dir + "workup/SNPsplit/{sample}.DNAex.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
-        bam_intron=out_dir + "workup/SNPsplit/{sample}.DNAin.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam",
-        bam_rrna=out_dir + "workup/SNPsplit/{sample}.DNAr.bowtie2.mapq20.allele_flagged.bam.featureCounts.bam"
+        bam=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20{snpsplit_name}.bam",
+        bam_exon=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAex.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.bam",
+        bam_intron=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAin.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.bam",
+        bam_rrna=out_dir + f"workup/{anno_out_dir}/{{sample}}.DNAr.bowtie2.mapq20{snpsplit_name}.bam.featureCounts.bam"
     output:
-        out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.anno.bam"
+        out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.anno.bam"
     log:
         out_dir + "workup/logs/{sample}.DNA_anno_combine.log"
     conda:
@@ -946,7 +959,7 @@ rule repeat_mask:
 rule add_chr_RNA_DNA:
     input:
         dpm=out_dir + "workup/alignments/{sample}.DNA.Aligned.out.mapq20.bam" 
-            if DNA_aligner == 'star' else out_dir + "workup/SNPsplit/{sample}.DNA.bowtie2.mapq20.anno.bam",
+            if DNA_aligner == 'star' else out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20.anno.bam",
         rpm=out_dir + "workup/alignments/{sample}.RNA.Aligned.sortedByCoord.out.mapq20.bam.featureCounts.bam"
             if RNA_aligner == 'star' else out_dir + "workup/alignments/{sample}.RNA.hisat2.mapq20.anno.bam",
         rpm_repeat=out_dir + "workup/alignments/{sample}.RNAr.Aligned.sortedByCoord.out.mapq20.tag.bam"
