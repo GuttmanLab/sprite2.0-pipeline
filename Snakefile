@@ -382,8 +382,7 @@ rule cutadapt:
         qc=out_dir + "workup/trimmed/{sample}.RDtrim.qc.txt"
     threads: 10
     params:
-        adapters_r1 = "-a GATCGGAAGAG -a ATCAGCACTTA -g GGTGGTCTTT -g GCCTCTTGTT \
-        -g CCAGGTATTT -g TAAGAGAGTT -g TTCTCCTCTT -g ACCCTCGATT",
+        adapters_r1 = "-a GATCGGAAGAG -a ATCAGCACTTA -g file:dpm96.fasta",
         adapters_r2 = "",
         others = "--minimum-length 20"
     log:
