@@ -5,20 +5,22 @@ import assembly
 import numpy as np
 import subprocess
 
+__author__ = "Noah Ollikainen, Charlotte A Lai, Peter Chovanec"
+
 class Downweighting(Enum):
     """An enumeration of downweighting schemes.
 
     NONE -- No downweighting. Each contact has a value of 1.
     N_MINUS_ONE -- A contact from a cluster of n reads has a value of
                    1 /(n - 1).
-    N_OVER_TWO -- A contact form a cluster of n reads has a value of
+    TWO_OVER_N -- A contact form a cluster of n reads has a value of
                   2 / n.
     UNKNOWN -- A default downweighing scheme for error checking.
     """
 
     NONE = 1
     N_MINUS_ONE = 2
-    N_OVER_TWO = 3
+    TWO_OVER_N = 3
     UNKNOWN = 4
 
 
@@ -31,7 +33,7 @@ class Contacts:
     """
 
 
-    def __init__(self, chromosome, build = "mm9", resolution = 1000000,
+    def __init__(self, chromosome, build = "mm10", resolution = 1000000,
                  downweighting = "none"):
         """Constructs an instance of the Contacts class.
 
@@ -51,8 +53,8 @@ class Contacts:
             self._downweighting = Downweighting.NONE
         elif downweighting == "n_minus_one":
             self._downweighting = Downweighting.N_MINUS_ONE
-        elif downweighting == "n_over_two":
-            self._downweighting = Downweighting.N_OVER_TWO
+        elif downweighting == "two_over_n":
+            self._downweighting = Downweighting.TWO_OVER_N
         else:
             self._downweighting = Downweighting.UNKNOWN
 
@@ -99,6 +101,11 @@ class Contacts:
                 bins = set()
 
                 for read in reads:
+                    if 'DPM' in read:
+                        _, coord = read.split('_')
+                        chrom, start, end = coord.replace('-', ':').split(':')
+                        genome_pos = self.get_genomic_position(chrom, start)
+
                     chromosome, position = read.split(':')
                     genome_pos = self.get_genomic_position(chromosome, position)
                     if genome_pos is not None:  # genome_pos == None if chrom not in dict
@@ -133,9 +140,11 @@ class Contacts:
                 bins = set()
 
                 for read in reads:
-                    chrom, position = read.split(':')
+                    if 'DPM' in read:
+                        _, coord = read.split('_')
+                        chrom, start, end = coord.replace('-', ':').split(':')
                     if chrom == self._chromosome:
-                        read_bin = int(position) // self._resolution
+                        read_bin = int(start) // self._resolution
                         bins.add(read_bin)
 
                 self.add_bins_to_contacts(bins)                
@@ -249,7 +258,7 @@ class Contacts:
         """Stores all pairwise contacts implied by one SPRITE cluster."""
 
         if len(bins) > 1:
-            if self._downweighting == Downweighting.N_OVER_TWO:
+            if self._downweighting == Downweighting.TWO_OVER_N:
                 inc = 2.0 / len(bins)
             elif self._downweighting == Downweighting.N_MINUS_ONE:
                 inc = 1.0 / (len(bins) - 1)

@@ -6,6 +6,7 @@ import pyranges as pr
 import tqdm
 import argparse
 import re 
+import pandas as pd
 # import pyranges_db as pr_db
 
 
@@ -63,10 +64,9 @@ class bedgraph:
         self.length = len(self.chrom)
 
     def convert2pyranges(self):
-        gr = pr.PyRanges(chromosomes=self.chrom, starts=self.start, 
-                     ends=self.end)
-        gr.Score = self.score
-        
+        r_df = pd.DataFrame({'Chromosome': self.chrom, 'Start': self.start, 
+                      'End': self.end, 'Score': self.score})
+        gr = pr.PyRanges(r_df)
         return gr
 
 #%%

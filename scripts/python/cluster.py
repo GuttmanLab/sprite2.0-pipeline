@@ -4,6 +4,7 @@ import gzip
 import os
 import sys
 from collections import defaultdict, Counter
+from tqdm import tqdm
 
 class Position:
     """This class represents a genomic position, with type of nucleic acid (RNA or DNA)
@@ -13,8 +14,9 @@ class Position:
       "R/DPM(feature)_chrX:1000"
     """
 
-    def __init__(self, read_type, feature, chromosome, start_coordinate, end_coordinate):
+    def __init__(self, read_type, strand, feature, chromosome, start_coordinate, end_coordinate):
         self._type = read_type
+        self._strand = strand
         self._feature = feature
         self._chromosome = chromosome
         self._start_coordinate = start_coordinate
@@ -25,19 +27,20 @@ class Position:
             return False
 
         return (self._type == other._type and
+                self._strand == other._strand and
                 self._feature == other._feature and
                 self._chromosome == other._chromosome and
                 self._start_coordinate == other._start_coordinate and
                 self._end_coordinate == other._end_coordinate)
 
     def __hash__(self):
-        return hash((self._type, self._feature, self._chromosome, 
+        return hash((self._type, self._strand, self._feature, self._chromosome, 
                      self._start_coordinate, self._end_coordinate))
 
     def to_string(self):
         try:
-            out = self._type + "[" + self._feature + "]" + "_" + \
-                self._chromosome + ":" + \
+            out = self._type + "[" + self._strand + ';' + self._feature + "]" \
+                + "_" + self._chromosome + ":" + \
                 str(self._start_coordinate) + "-" + str(self._end_coordinate)
         except:
             print(self._type, self._feature, self._chromosome)
@@ -49,7 +52,7 @@ class UMIs:
     """This class hold the UMI
 
     Methods:
-        to_string: Returns a sting of the UMI
+        to_string: Returns a string of the UMI
     """
 
     def __init__(self):
@@ -86,11 +89,17 @@ class Cluster:
     def __init__(self):
         self._positions = set()
 
+    def __iter__(self):
+        return iter(self._positions)
+
     def add_position(self, position):
         self._positions.add(position)
 
-    def size(self):
-        return len(self._positions)
+    def size(self, read_type=None):
+        if read_type == None:
+            return len(self._positions)
+        else:
+            return sum([1 if pos._type == read_type else 0 for pos in self._positions])
 
     def to_string(self):
         position_strings = [position.to_string() for position in self._positions]
@@ -218,17 +227,18 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                     if 'RPM' in barcode:
                         #get featureCounts annotation
                         if read.has_tag('XT'):
-                            anno = read.get_tag('XT')
+                            gene_anno = read.get_tag('XT')
                         elif read.has_tag('XS'):
-                            anno = read.get_tag('XS')
+                            gene_anno = read.get_tag('XS')
                         else:
                             raise Exception('XS tag missing, was featureCounts run?')
-
-                        position = Position('RPM', anno, read.reference_name,
+                        
+                        #[Strand; Gene annotation]
+                        position = Position('RPM', strand, gene_anno, read.reference_name,
                                             read.reference_start, read.reference_end)
                         barcode.remove('RPM')
                     elif 'DPM' in barcode:
-                        #add SNPSPLIT results into annotation
+                        #Allele annotation
                         # XX:Z:G1
                         if read.has_tag('XX'):
                             allele = read.get_tag('XX')
@@ -237,10 +247,10 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                                     allele = genome_1
                                 elif allele == "G2":
                                     allele = genome_2
-                            st_anno = allele + ';' + strand 
+                            allele_anno = allele + ';' + strand 
                         else:
-                            st_anno = strand
-
+                            allele_anno = ''
+                        #Gene annotation
                         if read.has_tag('XT'):
                             gene_anno = read.get_tag('XT')
                         elif read.has_tag('XS'):
@@ -248,12 +258,10 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                         else:
                             gene_anno = ''
 
-                        if len(gene_anno) == 0:
-                            anno = st_anno
-                        else:
-                            anno = st_anno + ';' + gene_anno
+                        #anno = Strand; Gene annotation; Allele
+                        anno = gene_anno + ';' + allele_anno
 
-                        position = Position('DPM', anno, read.reference_name,
+                        position = Position('DPM', strand, anno, read.reference_name,
                                             read.reference_start, read.reference_end)
                         barcode.remove('DPM')
                     else:
@@ -302,7 +310,7 @@ def get_clusters_fastq(fastqfile, num_tags, orientation, umi_len):
             count += 1
     print('Reads parsed:', count)
     return clusters
-#
+
 # umi_len = 16
 # num_tags = 8
 # fastqfile = '/mnt/data/20190704_10_1000_spritezero/assembled/complex_10_S2_L001_R1_001_val_1.assembled_rv_bID.fq.gz'
@@ -401,11 +409,12 @@ def parse_cluster(c_file):
 
     total_reads = 0
     clusters = Clusters()
-    pattern = re.compile('([a-zA-Z0-9]+)\[([a-zA-Z0-9_;\:\,\-\+\.\(\)\?]+)\]_([a-zA-Z0-9_\:\-\.\,\(\)]+):([0-9]+)\-([0-9]+)')
+    # pattern = re.compile('([a-zA-Z0-9]+)\[([a-zA-Z0-9_;\:\,\-\+\.\(\)\?]+)\]_([a-zA-Z0-9_\:\-\.\,\(\)]+):([0-9]+)\-([0-9]+)')
+    pattern = re.compile('([a-zA-Z0-9]+)\[(.+)\]_(.+):([0-9]+)\-([0-9]+)')
     # match = pattern.search('DPM[UA;-;Ralbp1.intron;Unassigned_NoFeatures.none]_chr17:65883728-65883812')
     
     with file_open(c_file) as c:
-        for line in c:
+        for line in tqdm(c):
 
             barcode, *reads = line.decode('utf-8').rstrip('\n').split('\t')
 
@@ -413,8 +422,16 @@ def parse_cluster(c_file):
                 total_reads += 1
                 try:
                     match = pattern.search(read)
-                    n_type, anno, chrom, start, end = match.groups()
-                    position = Position(n_type, anno, chrom, start, end)
+                    read_type, feature, chrom, start, end = match.groups()
+                    #get strand from annotation
+                    strand, *anno = feature.split(';')
+                    
+                    if strand == '+' or strand == '-':
+                        position = Position(read_type, strand, ';'.join(anno), chrom, 
+                                            start, end)
+                    else:
+                        position = Position(read_type, '.', feature, chrom, 
+                                            start, end)
                     clusters.add_position(barcode, position)
                 except:
                     print(read)
@@ -456,18 +473,18 @@ def write_bam(cluster, num_tags, original_bam, output_bam, genome_1, genome_2):
             if 'RPM' in barcode:
                 #get featureCounts annotation
                 if read.has_tag('XT'):
-                    anno = read.get_tag('XT')
+                    gene_anno = read.get_tag('XT')
                 elif read.has_tag('XS'):
-                    anno = read.get_tag('XS')
+                    gene_anno = read.get_tag('XS')
                 else:
                     raise Exception('XS tag missing, was featureCounts run?')
 
-                position = Position('RPM', anno, read.reference_name,
+                position = Position('RPM', strand, gene_anno, read.reference_name,
                                     read.reference_start, read.reference_end)
                 barcode.remove('RPM')
 
             elif 'DPM' in barcode:
-                #add SNPSPLIT results into annotation
+                #Allele annotation
                 # XX:Z:G1
                 if read.has_tag('XX'):
                     allele = read.get_tag('XX')
@@ -476,10 +493,10 @@ def write_bam(cluster, num_tags, original_bam, output_bam, genome_1, genome_2):
                             allele = genome_1
                         elif allele == "G2":
                             allele = genome_2
-                    st_anno = allele + ';' + strand 
+                    allele_anno = allele + ';' + strand 
                 else:
-                    st_anno = strand
-
+                    allele_anno = ''
+                #Gene annotation
                 if read.has_tag('XT'):
                     gene_anno = read.get_tag('XT')
                 elif read.has_tag('XS'):
@@ -487,16 +504,15 @@ def write_bam(cluster, num_tags, original_bam, output_bam, genome_1, genome_2):
                 else:
                     gene_anno = ''
 
-                if len(gene_anno) == 0:
-                    anno = st_anno
-                else:
-                    anno = st_anno + ';' + gene_anno
+                #anno = Strand; Gene annotation; Allele
+                anno = gene_anno + ';' + allele_anno
 
-                position = Position('DPM', anno, read.reference_name,
+                position = Position('DPM', strand, anno, read.reference_name,
                                     read.reference_start, read.reference_end)
                 barcode.remove('DPM')
-                    
-                    
+            else:
+                raise Exception('RPM or DPM not present in full barcode')  
+        
             barcode.append(sample_name)
             barcode_str = ".".join(barcode)
 
