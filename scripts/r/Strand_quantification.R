@@ -34,15 +34,6 @@ parser$add_argument('-o', '--out', dest='out', type='character',
 args <- parser$parse_args()
 
 
-# annotation_gr <- import("/mnt/data/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz")
-# aln <- readGAlignments("/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/workup/alignments/PB49.RNA.chr.bam")
-# RNA_aln <- readGAlignments("/mnt/data/RNA_DNA_SPRITE/HL522DSXX.AACTTGAC_CTGCTCCT.DNA.chr.bam")
-
-#merge overlaping genes
-# genes_anno <- reduce(genes_anno)
-# g_ovl <- findOverlaps(genes_anno, genes_anno_no)
-
-
 #'Quantify the percentage of reads on sense strand
 #'
 #'Depending on library type would expect close to 100% or 0% for RNA-seq
@@ -91,13 +82,6 @@ sense_strand_percentage <- function(bam_path, annotation_gr){
   
 }
 
-# isect <- pintersect(grl[queryHits(sense_ovlp)], gene_anno_gr[subjectHits(sense_ovlp)])
-# 
-# anti_sense_ranges <- sense_strand_percentage("/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/workup/alignments/PB49.RNA.chr.bam", gene_anno_gr)
-# sense_strand_percentage("/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/workup/alignments/PB49.DNA.chr.bam", gene_anno_gr)
-# anti_sense_ranges_2 <- sense_strand_percentage("/mnt/data/RNA_DNA_SPRITE/HL522DSXX.CCAGTTAG_CTACATTG.RNA.chr.bam", gene_anno_gr)
-
-
 annotation_gr <- import(args$gtf)
 gene_anno_gr <- annotation_gr[mcols(annotation_gr)$type == "gene"] #transcript
 # chr16:11136592-11176393
@@ -122,6 +106,7 @@ output <-plyr::ldply(results, rbind)
 names(output) <- c("File", "Percentage_on_sense", "Sense", "Anti-sense")
 
 write.table(output, args$out, sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+
 
 #'Count number of overlaps within each gene
 #'
@@ -172,49 +157,6 @@ count_within_gene_overlap <- function(bam_path, annotation_gr){
   return(out_df)
   
 }
-
-# per_gene_read_counts <- count_within_gene_overlap("/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/workup/alignments/PB49.RNA.chr.bam", gene_anno_gr)
-# write.table(per_gene_read_counts, "/mnt/data/PB49.RNA.chr.counts.txt", sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
-
-
-
-
-
-# gene_anno_gr <- annotation_gr[mcols(annotation_gr)$type == "gene"] #transcript
-# sense_ovlp <- findOverlaps(gr_chrom, gene_anno_gr, ignore.strand=FALSE, type="within")
-# strand(gene_anno_gr) <- ifelse(strand(gene_anno_gr) == '+', '-', '+')
-# anti_sense_ovlp <- findOverlaps(gr_chrom, gene_anno_gr, ignore.strand=FALSE, type="within")
-# 
-# length(unique(queryHits(sense_ovlp)[!(queryHits(sense_ovlp) %in% queryHits(anti_sense_ovlp))]))
-# length(unique(queryHits(anti_sense_ovlp)[!(queryHits(anti_sense_ovlp) %in% queryHits(sense_ovlp))]))
-# 
-# 
-# 
-# ignore_overlapping <- function(annotation_gr){
-#   
-#   merged_intervals <- reduce(annotation_gr, ignore.strand = FALSE)
-#   
-#   
-# }
-# 
-# test <- count_within_gene_overlap("/mnt/data/RNA_DNA_SPRITE/HL522DSXX.CCAGTTAG_CTACATTG.RNA.chr.bam", gene_anno_gr)
-# test2 <- count_within_gene_overlap("/mnt/data/RNA_DNA_SPRITE/HL522DSXX.AACTTGAC_CTGCTCCT.DNA.chr.bam", gene_anno_gr)
-# 
-# test <- data.frame(gene_name=gene_anno_gr$gene_name, sense_count=read_in_anno_count, all_count=read_in_anno_all_count )
-# test$diff <- test$all_count-test$sense_count
-
-
-# gm_ovl <- findOverlaps(gene_anno_gr[gene_anno_gr$gene_name == 'Gm47401'], gr_chrom, type="within", ignore.strand=TRUE)
-# gene_anno_gr_chr<-diffloop::addchr(gene_anno_gr)
-# 
-# findOverlaps(gene_anno_gr_chr[gene_anno_gr_chr$gene_name == 'Gm47401'], gr, type="within", ignore.strand=TRUE)
-# 
-# aln[cigarOpTable(cigar(aln))[,"N"] > 0 & seqnames(aln) == "chr13"]
-# 
-# myReadAsGRangesList <- grglist(aln,use.mcols = TRUE)
-# myReadAsGRangesList[njunc(aln) == 1]
-
-
 
 
 #'Quantify the percentage of reads on sense strand
