@@ -1,0 +1,11 @@
+channels:
+  - bioconda
+  - anaconda
+dependencies:
+  - hisat2=2.1.0
+  - bowtie2=2.3.5
+  - samtools=1.9
+  - python=3.6
+  - pigz
+  - pysam=0.15.0.1
+  - tqdm=4.38.0

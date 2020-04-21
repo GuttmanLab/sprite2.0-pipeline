@@ -2,13 +2,11 @@
 email: "pchovanec@lncrna.caltech.edu"
 #Location of the config file for barcodeIdentification
 bID: "./config.txt"
-#Type of SPRITE to analyse: "RNA-DNA" or "DNA-DNA"
-type: "RNA-DNA"
 #Location of the samples json file produced with fastq2json.py script
 samples: "/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/samples.json"
-#output directory
+#output directory (include trailing '/')
 output_dir: "/mnt/data/2019_08_31_Merge_SPRITE_MegaSPRITE_HiSeq_Peter/"
-#Currently "mm10","hg19" and "hg38" available
+#Currently "mm10" and "hg38" available
 assembly: "hg38"
 #Number of barcodes used (this includes DPM/RPM for RNA-DNA)
 num_tags: "5"
@@ -16,17 +14,6 @@ num_tags: "5"
 cell: "psm44"
 #Run SNPsplit
 snpsplit: "False"
-#Aligned for DNA "bowtie2" or "star", if running snpsplit the default is bowtie2
-dna_aligner: "bowtie2"
-#Aligned for RNA "hisat2" or "star"
-rna_aligner: "hisat2"
-#Location of STAR aligner indexes
-star_index:
-    mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/star"
-    hg38: "/groups/guttman/Peter/genomes/GRCh38/star"
-star_repeat_index:
-    mm10: "/groups/guttman/Peter/genomes/ncRNA/star"
-    hg38: "/groups/guttman/Peter/genomes/GRCh38/repeats/star"
 #Annotation GTF file used for featureCounts
 anno_gtf:
     mm10: "/groups/guttman/Peter/genomes/GRCm38.p6/GRCm38.p6.annotation.gtf.gz"

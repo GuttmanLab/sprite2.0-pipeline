@@ -24,8 +24,7 @@ def parse_arguments():
     parser.add_argument('--min_cluster_size', metavar = 'MIN', type = int,
                         action = 'store', default = 2,
                         help = "Skip read-clusters with fewer reads than MIN. (default 2)") 
-    parser.add_argument('--normalise', metavar = "NORM",
-                        action = 'store_true',
+    parser.add_argument('--normalise', action = 'store_true',
                         help = 'Should normalisation of cluster size be applied')
     parser.add_argument('--format', metavar = 'FORMAT', type = str,
                         action = 'store', default = 'sfws',

@@ -1,8 +1,0 @@
-channels:
-  - bioconda
-  - anaconda
-dependencies:
-  - hisat2=2.1.0
-  - samtools
-  - python=3.6
-  - pigz
