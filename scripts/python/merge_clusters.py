@@ -33,8 +33,8 @@ def parse_arguments():
     return parser.parse_args()
 
 
-# cluster_paths = ['/mnt/data/RNA_DNA_SPRITE/HEKRNADNASPRITE/workup/clusters/test_1.cluster', 
-                #  '/mnt/data/RNA_DNA_SPRITE/HEKRNADNASPRITE/workup/clusters/test_2.cluster']
+cluster_paths = ['/mnt/data/RNA_DNA_SPRITE/HEKRNADNASPRITE/workup/clusters/test_1.cluster', 
+                 '/mnt/data/RNA_DNA_SPRITE/HEKRNADNASPRITE/workup/clusters/test_2.cluster']
 
 def combine_clusters(cluster_paths, ignore_file):
     '''Combine multiple cluster files into a single file
@@ -47,7 +47,7 @@ def combine_clusters(cluster_paths, ignore_file):
 
     in_clusters = 0
 
-    cluster_merge = defaultdict(str)
+    cluster_merge = defaultdict(set)
 
     for cluster_path in cluster_paths:
         with open(cluster_path) as in_cluster:
@@ -57,7 +57,8 @@ def combine_clusters(cluster_paths, ignore_file):
                 if ignore_file:
                     *barcode, file_name = barcode.split('.')
                     barcode = '.'.join(barcode)
-                cluster_merge[barcode] += '\t' + '\t'.join(reads)
+                for r in reads:
+                    cluster_merge[barcode].add(r)
 
     print('In clusters:', in_clusters)
     print('Clusters after merging:', len(list(cluster_merge.keys())))
@@ -78,7 +79,7 @@ def write_cluster(cluster_dict, out_path):
     with open(out_path, 'w') as out:
         for barcode, reads in cluster_dict.items():
             clusters_written += 1
-            out.write(barcode + reads + '\n')
+            out.write('\t'.join([barcode] + list(reads)) + '\n')
 
     print('Clusters written out:', clusters_written)
 

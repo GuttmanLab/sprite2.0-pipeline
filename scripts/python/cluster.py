@@ -194,6 +194,21 @@ class Clusters:
 # test['ewafa']
 # test['ewafa'].count_type()
 
+def anno_type(element):
+    '''
+    Extract annotation type
+    '''
+    return element.split('.')[-1]
+
+
+def order_annotation(anno):
+    '''
+    Enforce exon, intron, repeat order
+    '''
+    anno_list = anno.split(';')
+    sorted_anno = sorted(anno_list, key=anno_type)
+    return ';'.join(sorted_anno)
+
 
 def get_clusters(bamfile, num_tags, genome_1, genome_2):
     """Parses a BAM file, groups positions into clusters according to their
@@ -234,8 +249,9 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                             raise Exception('XS tag missing, was featureCounts run?')
                         
                         #[Strand; Gene annotation]
-                        position = Position('RPM', strand, gene_anno, read.reference_name,
-                                            read.reference_start, read.reference_end)
+                        position = Position('RPM', strand, order_annotation(gene_anno), 
+                                            read.reference_name, read.reference_start, 
+                                            read.reference_end)
                         barcode.remove('RPM')
                     elif 'DPM' in barcode:
                         #Allele annotation
@@ -259,7 +275,7 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
                             gene_anno = ''
 
                         #anno = Strand; Gene annotation; Allele
-                        anno = gene_anno + ';' + allele_anno
+                        anno = order_annotation(gene_anno) + ';' + allele_anno
 
                         position = Position('DPM', strand, anno, read.reference_name,
                                             read.reference_start, read.reference_end)
@@ -417,7 +433,6 @@ def parse_cluster(c_file):
         for line in tqdm(c):
 
             barcode, *reads = line.decode('utf-8').rstrip('\n').split('\t')
-
             for read in reads:
                 total_reads += 1
                 try:
@@ -425,19 +440,21 @@ def parse_cluster(c_file):
                     read_type, feature, chrom, start, end = match.groups()
                     #get strand from annotation
                     strand, *anno = feature.split(';')
+                    anno = order_annotation(';'.join(anno))
                     
                     if strand == '+' or strand == '-':
-                        position = Position(read_type, strand, ';'.join(anno), chrom, 
+                        position = Position(read_type, strand, anno, chrom, 
                                             start, end)
                     else:
-                        position = Position(read_type, '.', feature, chrom, 
-                                            start, end)
+                        position = Position(read_type, '.', order_annotation(feature), 
+                                            chrom, start, end)
                     clusters.add_position(barcode, position)
                 except:
                     print(read)
                     raise Exception('Pattern did not match above printed string')
     print('Total cluster reads:', total_reads)
     return(clusters)
+
 
 
 
@@ -479,7 +496,7 @@ def write_bam(cluster, num_tags, original_bam, output_bam, genome_1, genome_2):
                 else:
                     raise Exception('XS tag missing, was featureCounts run?')
 
-                position = Position('RPM', strand, gene_anno, read.reference_name,
+                position = Position('RPM', strand, order_annotation(gene_anno), read.reference_name,
                                     read.reference_start, read.reference_end)
                 barcode.remove('RPM')
 
@@ -505,7 +522,7 @@ def write_bam(cluster, num_tags, original_bam, output_bam, genome_1, genome_2):
                     gene_anno = ''
 
                 #anno = Strand; Gene annotation; Allele
-                anno = gene_anno + ';' + allele_anno
+                anno = order_annotation(gene_anno) + ';' + allele_anno
 
                 position = Position('DPM', strand, anno, read.reference_name,
                                     read.reference_start, read.reference_end)
