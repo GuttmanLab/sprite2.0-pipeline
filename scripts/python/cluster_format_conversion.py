@@ -28,7 +28,7 @@ def parse_arguments():
                         help = 'Should normalisation of cluster size be applied')
     parser.add_argument('--format', metavar = 'FORMAT', type = str,
                         action = 'store', default = 'sfws',
-                        choices=['sfws', 'bed'],
+                        choices=['sfws', 'bed', 'h5'],
                         help = "What format to output") 
                        
     return parser.parse_args()
@@ -47,12 +47,31 @@ def main():
         c_pyr = cluster2pyranges(clusters, args.min_cluster_size, args.max_cluster_size, args.normalise)
         c_pyr.to_bed(args.output)
 
-    # clusters = parse_cluster('/mnt/data/RNA_DNA_SPRITE/20200315_RNA_DNA_Mario/8226.comboall.clusters')
+    if args.format == 'h5':
+        c_pyr = cluster2pyranges(clusters, args.min_cluster_size, args.max_cluster_size, args.normalise)
+        c_pyr.to_bed(args.output)
+
+        clusters_df = c_pyr.df
+        dpm_df = clusters_df[clusters_df['read_type']=='DPM']
+        dpm_df = dpm_df.drop(['read_type', 'exon', 'intron', 'repeat'], axis=1)
+        rpm_df = clusters_df[clusters_df['read_type']=='RPM']
+        rpm_df = rpm_df.drop(['read_type', 'Score'], axis=1)
+        store = pd.HDFStore(args.output, 'w', complevel=9, complib='lzo')
+        # store = pd.HDFStore('/mnt/data/RNA_DNA_SPRITE/20200315_RNA_DNA_Mario/8226.comboall.h5', 'w',
+        #                     complevel=9, complib='lzo')
+        store.append('DPM', dpm_df, format='table', append=True, data_columns=True)
+        store.append('RPM', rpm_df, format='table', append=True, data_columns=True)
+
+        store.close()
+
+    # clusters = parse_cluster('/mnt/data/RNA_DNA_SPRITE/20200315_RNA_DNA_Mario/8226.comboall.clusters.gz')
     # convert_clusters(clusters, 2,1000, '/mnt/data/RNA_DNA_SPRITE/20200315_RNA_DNA_Mario/8226.comboall.DPM.sfws.txt',
     #                  normalise=False)
 
     # c_pyr = cluster2pyranges(clusters, 2, 1000)
     # c_pyr.to_bed('/mnt/data/RNA_DNA_SPRITE/20200315_RNA_DNA_Mario/H1.comboall.bed')
+
+
 
 
 def convert_clusters(clusters, cluster_size_min, cluster_size_max, out_path, normalise):
@@ -152,8 +171,10 @@ def cluster2pyranges(clusters, cluster_size_min, cluster_size_max, normalise=Tru
 
         cs = cluster.size()
         csd = cluster.size('DPM')
+        if csd == 0:
+            print(cs, csd)
         if normalise:
-            score = 2.0 / len(csd)
+            score = 2/csd
         else:
             score = 1
 
@@ -168,7 +189,10 @@ def cluster2pyranges(clusters, cluster_size_min, cluster_size_max, normalise=Tru
                 end.append(position._end_coordinate)
                 strand.append(position._strand)              
                 barcodes.append(br)
-                scores.append(score)
+                if position._type == 'RPM':
+                    scores.append(1)
+                elif position._type == 'DPM':
+                    scores.append(score)
                 read_type.append(position._type)
                 #annotation
                 features = position._feature.split(';')
@@ -177,7 +201,7 @@ def cluster2pyranges(clusters, cluster_size_min, cluster_size_max, normalise=Tru
                 intron.append(fs.get('intron', 'NA'))
                 repeat.append(fs.get('repeat', 'NA'))
 
-    #Convert to pyrages
+    #Convert to pyranges
     r_df = pd.DataFrame({'Chromosome': chrom, 'Start': start, 'End': end, 
                         'Strand': strand, 'Name': barcodes, 'Score': score, 'exon': exon, 
                         'intron': intron, 'repeat': repeat, 'read_type': read_type})
@@ -199,15 +223,16 @@ def classify_feature(features):
     for f in features:
         if f.endswith('exon'):
             c_feature['exon'] = f
-        if f.endswith('intron'):
+        elif f.endswith('intron'):
             c_feature['intron'] = f
-        if f.endswith('none'):
+        elif f.endswith('none'):
             continue
-        if not f.endswith('exon|intron|none') or f.endswith('repeat'):
+        elif not f.endswith('exon|intron|none') or f.endswith('repeat'):
             if len(f) > 0:
                 c_feature['repeat'] = f
 
     return c_feature
+
 
 
 
