@@ -6,16 +6,12 @@ from natsort import natsorted, index_natsorted, order_by_index
 import pyranges as pr
 import argparse
 
-# d = {'Chromosome': ['chr1', 'chr1', 'chr1'], 'Start': [3, 8, 5], 'End': [6, 9, 7], 
-#      'Score': [0.1, 5, 3.14], 'Strand': ['+', '+', '-']}
-# gr = pr.from_dict(d)
-# gr.to_rle()
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description =
             "Clusters to other format conversion")
-    parser.add_argument('-i', '--input', action = 'store', metavar = 'FILE',
-                        help = 'Input cluster file')
+    parser.add_argument('-i', '--input', action = 'store', metavar = 'FILE', nargs='+',
+                        help = 'Input cluster file(s)')
     parser.add_argument('-o', '--output', action = 'store', metavar = 'FILE',
                         help = 'Output file')
     parser.add_argument('--max_cluster_size', metavar = 'MAX', type = int,
@@ -30,6 +26,10 @@ def parse_arguments():
                         action = 'store', default = 'sfws',
                         choices=['sfws', 'bed', 'h5'],
                         help = "What format to output") 
+    parser.add_argument('--in_format', metavar = 'INFORMAT', type = str,
+                        action = 'store', default = 'clusters',
+                        choices=['clusters', 'bed'],
+                        help = "What is the input format") 
                        
     return parser.parse_args()
 
@@ -38,29 +38,58 @@ def main():
 
     args = parse_arguments()
 
-    clusters = parse_cluster(args.input)
+    if args.in_format == 'clusters':
+        assert len(args.input)==1, 'For in format cluster please only input 1 file'
+        clusters = parse_cluster(args.input[0])
 
-    if args.format == 'sfws':
-        convert_clusters(clusters, args.min_cluster_size, args.max_cluster_size, args.output, args.normalise)
+    if args.format == 'sfws' and args.in_format == 'clusters':
+        
+        convert_clusters(clusters, args.min_cluster_size, args.max_cluster_size, 
+                         args.output, args.normalise)
 
-    if args.format == 'bed':
-        c_pyr = cluster2pyranges(clusters, args.min_cluster_size, args.max_cluster_size, args.normalise)
-        c_pyr.to_bed(args.output)
+    if args.format == 'bed' and args.in_format == 'clusters':
+        c_df = cluster2df(clusters, args.min_cluster_size, args.max_cluster_size, 
+                          args.normalise)
+        c_df.to_csv(args.output, sep='\t', header=False, index=False)
 
-    if args.format == 'h5':
-        c_pyr = cluster2pyranges(clusters, args.min_cluster_size, args.max_cluster_size, args.normalise)
-        c_pyr.to_bed(args.output)
+        #  gr = pr.PyRanges(r_df)
 
-        clusters_df = c_pyr.df
+    if args.format == 'h5' and args.in_format == 'clusters':
+
+        clusters_df = cluster2df(clusters, args.min_cluster_size, 
+                                 args.max_cluster_size, args.normalise)
+        
         dpm_df = clusters_df[clusters_df['read_type']=='DPM']
         dpm_df = dpm_df.drop(['read_type', 'exon', 'intron', 'repeat'], axis=1)
         rpm_df = clusters_df[clusters_df['read_type']=='RPM']
         rpm_df = rpm_df.drop(['read_type', 'Score'], axis=1)
+        
         store = pd.HDFStore(args.output, 'w', complevel=9, complib='lzo')
-        # store = pd.HDFStore('/mnt/data/RNA_DNA_SPRITE/20200315_RNA_DNA_Mario/8226.comboall.h5', 'w',
-        #                     complevel=9, complib='lzo')
+        
         store.append('DPM', dpm_df, format='table', append=True, data_columns=True)
         store.append('RPM', rpm_df, format='table', append=True, data_columns=True)
+
+        store.close()
+
+    if args.format == 'h5' and args.in_format == 'bed':
+        col_names = ['Chromosome', 'Start', 'End', 'Strand', 'Name', 'Score', 
+                        'exon', 'intron', 'repeat', 'read_type']
+        col_dtypes = {'Chromosome':str, 'Start':int, 'End':int, 'Name':str,
+                        'Score':'float32', 'Strand':str, 'exon':str, 'intron':str, 'repeat':str, 
+                        'read_type':str}  
+
+        store = pd.HDFStore(args.output, 'w', complevel=9, complib='lzo')
+        for f in args.input:
+            print('Writing:', f)
+            clusters_df = pd.read_csv(f, sep='\t', names=col_names, dtype=col_dtypes)
+        
+            dpm_df = clusters_df[clusters_df['read_type']=='DPM']
+            dpm_df = dpm_df.drop(['read_type', 'exon', 'intron', 'repeat'], axis=1)
+            rpm_df = clusters_df[clusters_df['read_type']=='RPM']
+            rpm_df = rpm_df.drop(['read_type', 'Score'], axis=1)
+
+            store.append('DPM', dpm_df, format='table', append=True, data_columns=True)
+            store.append('RPM', rpm_df, format='table', append=True, data_columns=True)
 
         store.close()
 
@@ -139,8 +168,8 @@ def cluster2sfws(cluster, read_type, normalise=True):
 
 
 
-def cluster2pyranges(clusters, cluster_size_min, cluster_size_max, normalise=True):
-    '''Convert cluster format to pyranges (BED)
+def cluster2df(clusters, cluster_size_min, cluster_size_max, normalise=True):
+    '''Convert cluster format to pandas dataframe (BED)
 
     Notes:
         chrom, start, end, strand, cluster, exon, intron, repeat, read_type
@@ -171,8 +200,7 @@ def cluster2pyranges(clusters, cluster_size_min, cluster_size_max, normalise=Tru
 
         cs = cluster.size()
         csd = cluster.size('DPM')
-        if csd == 0:
-            print(cs, csd)
+
         if normalise:
             score = 2/csd
         else:
@@ -201,14 +229,12 @@ def cluster2pyranges(clusters, cluster_size_min, cluster_size_max, normalise=Tru
                 intron.append(fs.get('intron', 'NA'))
                 repeat.append(fs.get('repeat', 'NA'))
 
-    #Convert to pyranges
+    #Convert to dataframe
     r_df = pd.DataFrame({'Chromosome': chrom, 'Start': start, 'End': end, 
-                        'Strand': strand, 'Name': barcodes, 'Score': score, 'exon': exon, 
+                        'Strand': strand, 'Name': barcodes, 'Score': scores, 'exon': exon, 
                         'intron': intron, 'repeat': repeat, 'read_type': read_type})
 
-    gr = pr.PyRanges(r_df)
-    
-    return gr
+    return r_df
 
 
 def classify_feature(features):
@@ -228,7 +254,7 @@ def classify_feature(features):
         elif f.endswith('none'):
             continue
         elif not f.endswith('exon|intron|none') or f.endswith('repeat'):
-            if len(f) > 0:
+            if len(f) > 0 and f != '.':
                 c_feature['repeat'] = f
 
     return c_feature
