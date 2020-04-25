@@ -280,10 +280,10 @@ main <- function() {
     #Make total RNA DNA rRNA plots
     rna_df <- do.call("rbind", lapply(dfs, function(x) totalRnaCount(x)))
     dna_df <- do.call("rbind", lapply(dfs, function(x) totalDnaCount(x)))
-    plotSup(rna_df, dna_df, c("RNA", "DNA"), args[1], paste(args[2], "_rna_dna_proportions"))
+    plotSup(rna_df, dna_df, c("RNA", "DNA"), args[1], paste(args[2], "_rna_dna_proportions", sep = ""))
     
     total_rrna <- do.call("rbind", lapply(dfs, function(x) totalRRna(x)))
-    plotSup(total_rrna, rna_df, c("rRNA", "RNA"), args[1], paste(args[2],"_rrna_rna_proportions"))
+    plotSup(total_rrna, rna_df, c("rRNA", "RNA"), args[1], paste(args[2],"_rrna_rna_proportions", sep = ""))
     
     #Make table of other metrics
     # rna_df <- do.call("rbind", lapply(dfs, function(x) totalRnaCount(x)))

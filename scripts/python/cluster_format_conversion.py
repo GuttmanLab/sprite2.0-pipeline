@@ -88,8 +88,18 @@ def main():
             rpm_df = clusters_df[clusters_df['read_type']=='RPM']
             rpm_df = rpm_df.drop(['read_type', 'Score'], axis=1)
 
-            store.append('DPM', dpm_df, format='table', append=True, data_columns=True)
-            store.append('RPM', rpm_df, format='table', append=True, data_columns=True)
+            store.append('DPM', dpm_df, format='table', append=True, 
+                         data_columns=True, index=False)
+            store.append('RPM', rpm_df, format='table', append=True, 
+                         data_columns=True, index=False)
+
+        #create index after all data appended
+        print('Creating DPM index')
+        store.create_table_index('DPM', columns=list(dpm_df.columns), optlevel=9, 
+                                 kind='full')
+        print('Creating RPM index')
+        store.create_table_index('RPM', columns=list(rpm_df.columns), optlevel=9, 
+                                 kind='full')
 
         store.close()
 
@@ -202,7 +212,10 @@ def cluster2df(clusters, cluster_size_min, cluster_size_max, normalise=True):
         csd = cluster.size('DPM')
 
         if normalise:
-            score = 2/csd
+            try:
+                score = 2/csd
+            except ZeroDivisionError:
+                score = 1
         else:
             score = 1
 
