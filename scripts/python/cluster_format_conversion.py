@@ -64,7 +64,7 @@ def main():
         rpm_df = clusters_df[clusters_df['read_type']=='RPM']
         rpm_df = rpm_df.drop(['read_type', 'Score'], axis=1)
         
-        store = pd.HDFStore(args.output, 'w', complevel=9, complib='lzo')
+        store = pd.HDFStore(args.output, 'w', complevel=0)#, complib='blosc') #lzo
         
         store.append('DPM', dpm_df, format='table', append=True, data_columns=True)
         store.append('RPM', rpm_df, format='table', append=True, data_columns=True)
@@ -78,7 +78,7 @@ def main():
                         'Score':'float32', 'Strand':str, 'exon':str, 'intron':str, 'repeat':str, 
                         'read_type':str}  
 
-        store = pd.HDFStore(args.output, 'w', complevel=9, complib='lzo')
+        store = pd.HDFStore(args.output, 'w', complevel=0)#, complib='blosc') #lzo
         for f in args.input:
             print('Writing:', f)
             clusters_df = pd.read_csv(f, sep='\t', names=col_names, dtype=col_dtypes)
