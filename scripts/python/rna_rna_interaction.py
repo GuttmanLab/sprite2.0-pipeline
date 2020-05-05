@@ -9,6 +9,7 @@ import gc
 import json
 import os
 import argparse
+from rna_rna_top import get_top_genes
 
 
 from timeit import Timer
@@ -33,7 +34,7 @@ def parse_arguments():
                         choices=['exons', 'introns'],
                         help = "Interactions of either exons or introns")
     parser.add_argument('--chromosome', metavar = 'CHROM', action = 'store',
-                        default = '', 
+                        default = None, 
                         help = 'Get interactions of genes on only a single \
                                 chromosome or genome wide') 
     parser.add_argument('--chunksize', metavar = 'CHUNK', action = 'store',
@@ -41,6 +42,10 @@ def parse_arguments():
                         help = "Size of chunks to be read in one at a time") 
     parser.add_argument('--self', action = 'store_true', 
                         help = "Include self interactions (singletons)")
+    parser.add_argument('--top', metavar = 'INT', action = 'store', type = int,
+                    default = 0, 
+                    help = "Count cutoff of genes in clusters to be used for rna-rna \
+                            interaction")
                        
     return parser.parse_args()
 
@@ -49,14 +54,14 @@ def main():
 
     args = parse_arguments()
 
-    gene_data = genes(args.gtf, args.output, args.region)
-    
-    if args.chromosome == '':
-        gene_data.get_gene_names(biotype=args.biotype)
-    else:
-        gene_data.get_gene_names(chrom=args.chromosome, biotype=args.biotype)
-
+    gene_data = genes(args.gtf, args.output, args.region, args.top)
+    gene_data.get_gene_names(chrom=args.chromosome, biotype=args.biotype)
     gene_data.write_to_file()
+
+    if args.top > 0:
+        top_genes = get_top_genes(args.input, args.top) #returns a set
+        gene_data._gene_names = [i for i in gene_data._gene_names if i in top_genes]
+        gene_data.write_to_file(top=True)
 
     if args.region == 'introns':
         select_introns = gene_data.to_introns()
@@ -80,14 +85,12 @@ class genes():
     Holder for gene names used for searches of HDF5 file
     '''
 
-    def __init__(self, gtf, output_dir, region):
-        self.gtf = gtf
-        self.gtf_gr = ''
-        self.gene_names = []
-        self.chrom = ''
-        self.biotype = ''
-        self.output_dir = output_dir
-        self.region = region
+    def __init__(self, gtf, output_dir, region, top=0):
+        self._gtf = gtf
+        self._gene_names = []
+        self._output_dir = output_dir
+        self._region = region
+        self._top = top
 
     def get_gene_names(self, chrom=None, biotype='protein_coding'):
         '''
@@ -99,21 +102,21 @@ class genes():
             biotype(str): Biotype of gene to extract
         '''
         if chrom == None:
-            self.chrom = 'All'
+            self._chrom = 'All'
         else:
-            self.chrom = chrom
+            self._chrom = chrom
 
-        self.biotype = biotype
+        self._biotype = biotype
 
         #Check if output file already exists, and if it does, read from it
-        bn = os.path.basename(self.gtf).split('.gtf.gz')[0]
-        out_file = self.output_dir + '/' + bn + '_' + self.chrom + '_' + self.biotype + '.txt'
+        bn = os.path.basename(self._gtf).split('.gtf.gz')[0]
+        out_file = self._output_dir + '/' + bn + '_' + self._chrom + '_' + self._biotype + '.txt'
 
         if os.path.isfile(out_file):
             self.read_from_file(out_file)
         else:
 
-            gtf_gr = pr.read_gtf(self.gtf)
+            gtf_gr = pr.read_gtf(self._gtf)
             gtf_gr = gtf_gr[gtf_gr.Feature == 'gene']
             gtf_gr = gtf_gr[gtf_gr.gene_biotype == biotype]
             if chrom != None:
@@ -123,17 +126,17 @@ class genes():
             gtf_df = gtf_gr.df.sort_values(by=['Chromosome', 'Start'])
 
             unique_gene_name = unique(list(gtf_df['gene_name']))
-            self.gene_names = unique_gene_name
+            self._gene_names = unique_gene_name
             
-            self.gtf_gr = gtf_gr
+            self._gtf_gr = gtf_gr
 
 
     def to_introns(self):
-        return [i + '.intron' for i in self.gene_names]
+        return [i + '.intron' for i in self._gene_names]
 
 
     def to_exons(self):
-        return [i + '.exon' for i in self.gene_names]
+        return [i + '.exon' for i in self._gene_names]
 
     def to_index(self, g_type):
         '''
@@ -149,25 +152,29 @@ class genes():
 
         idx = defaultdict(int)
         j = 0
-        for i in self.gene_names:
+        for i in self._gene_names:
             idx[i + t] = j
             j += 1
 
         return idx
 
-    def write_to_file(self):
+    def write_to_file(self, top=False):
         '''
         Write gene_names to file
         '''
-        
-        bn = os.path.basename(self.gtf).split('.gtf.gz')[0]
-        out_file = self.output_dir + '/' + bn + '_' + self.chrom + '_' + self.biotype + '.txt'
-        
+        bn = os.path.basename(self._gtf).split('.gtf.gz')[0]
+        if top:
+            out_file = self._output_dir + '/' + bn + '_' + self._chrom + '_' + \
+                       self._biotype + '_top' + str(self._top) + '.txt'
+        else:
+            out_file = self._output_dir + '/' + bn + '_' + self._chrom + '_' + \
+                       self._biotype + '.txt'
+            
         if os.path.isfile(out_file):
             print('File already exists')
         else:
             with open(out_file, 'w') as out:
-                for i in self.gene_names:
+                for i in self._gene_names:
                     out.write(i + '\n')
 
     def read_from_file(self, in_file):
@@ -177,14 +184,18 @@ class genes():
         
         with open(in_file) as read:
             for i in read:
-                self.gene_names.append(i.rstrip())
+                self._gene_names.append(i.rstrip())
 
     def write_interactions(self, interactions):
         '''
         Write out interactions dictionary
         '''
-        out_file = self.output_dir + '/' + self.chrom + '_' + self.biotype + '_' + \
-                   self.region + '.npy'
+        if self._top > 0 :
+            out_file = self._output_dir + '/' + self._chrom + '_' + self._biotype + '_' + \
+                   self._region + '_top' + str(self._top) +'.npy'
+        else:
+            out_file = self._output_dir + '/' + self._chrom + '_' + self._biotype + '_' + \
+                    self._region + '.npy'
         np.save(out_file, interactions)
 
 
@@ -207,6 +218,7 @@ class genes():
                     idx = [gene_idx.get(i) for i in items]
                     for i, j in combinations(idx, 2):
                         S[i,j] += 1
+                        S[j,i] += 1
                         count_out += 1
             elif self_interaction:
                 if len(items) <= 1:
@@ -219,12 +231,20 @@ class genes():
                     idx = [gene_idx.get(i) for i in items]
                     for i, j in combinations(idx, 2):
                         S[i,j] += 1
+                        S[j,i] += 1
                         count_out += 1
+                    #add self
+                    for x in idx:
+                        S[x,x] += 1
 
         S_coo = S.tocoo()
 
-        out_file = self.output_dir + '/' + self.chrom + '_' + self.biotype + '_' + \
-                   self.region + '.npz'
+        if self._top > 0 :
+            out_file = self._output_dir + '/' + self._chrom + '_' + self._biotype + '_' + \
+                   self._region + '_top' + str(self._top) +'.npz'
+        else:
+            out_file = self._output_dir + '/' + self._chrom + '_' + self._biotype + '_' + \
+                    self._region + '.npz'
 
         save_npz(out_file, S_coo)
 
@@ -234,6 +254,8 @@ class genes():
             ax = fig.add_subplot(111)
             im = ax.matshow(np.log10(S_dense), cmap='YlOrRd')
             fig.colorbar(im)
+
+
 
 
 

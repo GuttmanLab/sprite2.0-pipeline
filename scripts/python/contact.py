@@ -4,6 +4,7 @@ from random import random
 import assembly
 import numpy as np
 import subprocess
+from scipy.sparse import load_npz
 
 __author__ = "Noah Ollikainen, Charlotte A Lai, Peter Chovanec"
 
@@ -175,6 +176,14 @@ class Contacts:
                 count = int(float(count))
                 self._contacts[pos1][pos2] = count
                 self._contacts[pos2][pos1] = count
+
+
+    def get_raw_contacts_from_matrix(self, npz_file):
+        """Parse a coo matrix and store the contacts
+
+        """
+        matrix = load_npz(npz_file)
+        self._contacts = matrix.toarray()
 
 
     def get_raw_contacts_from_ren_hic_file(self, hic_file):
