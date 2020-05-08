@@ -5,7 +5,7 @@ import pandas as pd
 from natsort import natsorted, index_natsorted, order_by_index
 import pyranges as pr
 import argparse
-
+import sys
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description =
@@ -29,7 +29,16 @@ def parse_arguments():
     parser.add_argument('--in_format', metavar = 'INFORMAT', type = str,
                         action = 'store', default = 'clusters',
                         choices=['clusters', 'bed'],
-                        help = "What is the input format") 
+                        help = "What is the input format")
+    parser.add_argument('--dpm_rowsize', metavar = 'ROWS', type = int,
+                        action = 'store',
+                        help = "number of TOTAL DPM rows expected (required for h5 format to \
+                            determine optimal chunksize") 
+    parser.add_argument('--rpm_rowsize', metavar = 'ROWS', type = int,
+                        action = 'store',
+                        help = "number of TOTAL RPM rows expected (required for h5 format to \
+                            determine optimal chunksize") 
+    
                        
     return parser.parse_args()
 
@@ -87,11 +96,15 @@ def main():
             dpm_df = dpm_df.drop(['read_type', 'exon', 'intron', 'repeat'], axis=1)
             rpm_df = clusters_df[clusters_df['read_type']=='RPM']
             rpm_df = rpm_df.drop(['read_type', 'Score'], axis=1)
-
-            store.append('DPM', dpm_df, format='table', append=True, 
-                         data_columns=True, index=False)
-            store.append('RPM', rpm_df, format='table', append=True, 
-                         data_columns=True, index=False)
+            
+            if args.dpm_rowsize == None or args.rpm_rowsize == None:
+                print('run "grep -c" on bed files to determine number of rows')
+                sys.exit()
+            else:
+                store.append('DPM', dpm_df, format='table', append=True, 
+                            data_columns=True, index=False, expectedrows=args.dpm_rowsize)
+                store.append('RPM', rpm_df, format='table', append=True, 
+                            data_columns=True, index=False, expectedrows=args.rpm_rowsize)
 
         #create index after all data appended
         print('Creating DPM index')
