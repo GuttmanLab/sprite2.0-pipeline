@@ -253,6 +253,37 @@ rule all:
 onerror:
     shell('mail -s "an error occurred" ' + email + ' < {log}')
 
+################################################################################
+#Merge
+################################################################################
+#For files that don't need to be merged, just create a symbolic link
+rule merge_fastqs_pe:
+    input: 
+        r1 = lambda wildcards: FILES[wildcards.sample]['R1'],
+        r2 = lambda wildcards: FILES[wildcards.sample]['R2']
+    output: 
+        r1 = out_dir + "workup/merged/{sample}_R1.fastq.gz",
+        r2 = out_dir + "workup/merged/{sample}_R2.fastq.gz"
+    shell:
+        ''' 
+        count_1=$(echo '{input.r1}' | awk -F' ' '{{print NF}}')
+        
+        if [[ $count_1 -gt 1 ]]
+        then
+            cat {input.r1} > {output.r1}
+        else
+            ln -s {input.r1} {output.r1}
+        fi
+
+        count_2=$(echo '{input.r2}' | awk -F' ' '{{print NF}}')
+        
+        if [[ $count_2 -gt 1 ]]
+        then
+            cat {input.r2} > {output.r2}
+        else
+            ln -s {input.r2} {output.r2}
+        fi
+        '''
 
 ################################################################################
 #Trimming and barcode identification
@@ -262,8 +293,10 @@ onerror:
 #multiple cores requires pigz to be installed on the system
 rule adaptor_trimming_pe:
     input:
-        [lambda wildcards: FILES[wildcards.sample]['R1'],
-        lambda wildcards: FILES[wildcards.sample]['R2']]
+        [out_dir + "workup/merged/{sample}_R1.fastq.gz", 
+        out_dir + "workup/merged/{sample}_R2.fastq.gz"] 
+        # [lambda wildcards: FILES[wildcards.sample]['R1'],
+        # lambda wildcards: FILES[wildcards.sample]['R2']]
     output:
          out_dir + "workup/trimmed/{sample}_R1_val_1.fq.gz",
          out_dir + "workup/trimmed/{sample}_R1.fastq.gz_trimming_report.txt",

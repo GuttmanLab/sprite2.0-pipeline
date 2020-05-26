@@ -30,11 +30,25 @@ for folder in args.fastq_dir:
 		for f in files:
 			if f.endswith("fastq.gz") or f.endswith("fq.gz") or f.endswith("fastq") or f.endswith("fq"):
 				full_path = join(root, f)
+				if '_00' in f:
+					if 'L00' in f:
+						m = re.search(r"(.+)_(L[0-9]{3})_(R[12])_00[0-9].(fastq.gz|fq.gz|fastq|fq)", f)
+						reads_g = 3
+					else:
+						m = re.search(r"(.+)_(R[12])_00[0-9].(fastq.gz|fq.gz|fastq|fq)", f)
+						reads_g = 2
+				else:	
+					if 'L00' in f:
+						m = re.search(r"(.+)_(L[0-9]{3})_(R[12]).(fastq.gz|fq.gz|fastq|fq)", f)
+						reads_g = 3
+					else:
+						m = re.search(r"(.+)_(R[12]).(fastq.gz|fq.gz|fastq|fq)", f)
+						reads_g = 2
 				#R1 will be forward reads, R2 will be reverse reads
 				m = re.search(r"(.+)_(R[12]).(fastq.gz|fq.gz|fastq|fq)", f)
 				if m:
 					sample = m.group(1)
-					reads = m.group(2)  
+					reads = m.group(reads_g)  
 					FILES[sample][reads].append(full_path)
 				
 print()
