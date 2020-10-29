@@ -75,7 +75,7 @@ def filter_reads(args):
     if args.assembly != 'none':
         #filter out reads that do not map to main assembly
         chroms = list(assembly.build(args.assembly, 1)._chromsizes.keys())
-        #add chr to bam header
+        # add chr to bam header
         bam_header = add_chr_to_bam_header(args.input, chroms)
 
     # with pysam.AlignmentFile("/mnt/data/2p5-4.RNA.Aligned.sortedByCoord.out.bam.featureCounts.bam", "rb") as input_file,\
@@ -94,7 +94,14 @@ def filter_reads(args):
         else:
             output_file = pysam.AlignmentFile(args.output, "wb", header = bam_header)
             for read in input_file.fetch(until_eof = True):
-                ref_name = read.reference_name if 'chr' in read.reference_name else 'chr' + read.reference_name 
+                #keep mito
+                if 'chr' in read.reference_name:
+                    ref_name = read.reference_name
+                else:
+                    if 'MT' in read.reference_name:
+                        ref_name = 'chrM'
+                    else:
+                        ref_name = 'chr' + read.reference_name 
                 if not "NOT_FOUND" in read.query_name and ref_name in chroms:
                     output_file.write(read)
                     out_count += 1

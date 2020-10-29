@@ -8,6 +8,7 @@ import os
 import sys
 import datetime
 from pathlib import Path
+import yaml
 
 #when making dag.pdf all print statements need to be commented out, otherwise it will cause an error!
 
@@ -33,57 +34,52 @@ clusters_heatmap = "scripts/python/get_sprite_contacts.py"
 v = datetime.datetime.now()
 run_date = v.strftime('%Y.%m.%d.')
 
+# Print messages before start
+INFO = ''
 
-try:
-    config_path = config["config_path"]
-except:
-    config_path = 'config.yaml'
-
-configfile: config_path
 
 try:
     email = config['email']
 except:
-    print("Won't send email on error")
+    INFO += "Won't send email on error \n"
     email = None
 
 try:
     out_dir = config['output_dir']
-    print('All data will be written to:', out_dir)
+    INFO += 'All data will be written to: ' + out_dir + '\n'
 except:
     out_dir = ''
-    print('Defaulting to working directory as output directory')
+    INFO += 'Defaulting to working directory as output directory \n'
 
 try:
     bid_config = config['bID']
-    print('Using BarcodeID config', bid_config)
+    INFO += 'Using BarcodeID config ' + bid_config + '\n'
 except:
     bid_config = 'workup/config.txt'
-    print('Config "bID" not specified, looking for config at:', bid_config)
+    INFO += 'Config "bID" not specified, looking for config at: ' + bid_config + '\n'
 
 try:
     num_tags = config['num_tags']
-    print('Using', num_tags, 'tags')
+    INFO += 'Using ' + num_tags + ' tags' + '\n'
 except:
     num_tags = "5"
-    print('Config "num_tags" not specified, using:', num_tags)
+    INFO += 'Config "num_tags" not specified, using: ' + num_tags + '\n'
 
 
 try:
     assembly = config['assembly']
     assert assembly in ['mm10', 'hg38'], 'Only "mm10" or "hg38" currently supported'
-    print('Using', assembly)
+    INFO += 'Using ' + assembly + '\n'
 except:
-    print('Config "assembly" not specified')
-    sys.exit()
+    sys.exit('ERROR: Config "assembly" not specified')
 
 
 try:
     samples = config['samples']
-    print('Using samples file:', samples)
+    INFO += 'Using samples file: ' + samples + '\n'
 except:
     samples = './samples.json'
-    print('Defaulting to working directory for samples json file')
+    INFO += 'Defaulting to working directory for samples json file\n' 
 
 
 ################################################################################
@@ -95,8 +91,7 @@ try:
     mask = config['mask'][config['assembly']]
     exon_intron_gtf = config['exon_intron_gtf'][config['assembly']]
 except:
-    print('Annotation or mask path not specified in config.yaml')
-    sys.exit() #no default, exit
+    sys.exit('ERROR: Annotation or mask path not specified in config.yaml') #no default, exit
 
 ################################################################################
 #SNPsplit 
@@ -104,7 +99,7 @@ except:
 
 try:
     run_snpsplit = config['snpsplit']
-    print('Running SNPsplit:', run_snpsplit)
+    INFO += 'Running SNPsplit: ' + run_snpsplit + '\n'
     if run_snpsplit == 'True':
         snp_file = config['snp_file'][config['cell']]
         snpsplit_name = '.allele_flagged'
@@ -115,7 +110,7 @@ try:
         snpsplit_name = ''
         anno_out_dir = 'alignments'
 except:
-    print('SNPsplit not specified in config, will not run')
+    INFO += 'SNPsplit not specified in config, will not run\n' 
     snp_file = ''
     run_snpsplit = False
     snpsplit_name = ''
@@ -125,16 +120,16 @@ except:
 if run_snpsplit == 'True':
     try:
         g1 = config['snp_alleles'][config['cell']]['g1']
-        print('Genome 1 strain:', g1)
+        INFO += 'Genome 1 strain: ' + g1 + '\n'
     except:
-        print('No strain specified for genome 1')
+        INFO += 'No strain specified for genome 1\n'
         g1 = None
 
     try:
         g2 = config['snp_alleles'][config['cell']]['g2']
-        print('Genome 2 stain:', g2)
+        INFO += 'Genome 2 stain: ' + g2 + '\n'
     except:
-        print('No strain specified for genome 2')
+        INFO += 'No strain specified for genome 2\n'
         g2 = None    
 else:
     g1 = None
@@ -148,8 +143,7 @@ try:
     hisat2_index = config['hisat2_index'][config['assembly']]
     hisat2_ss = config['hisat2_splice_sites'][config['assembly']]
 except:
-    print('HISAT2 indexes not specified in config.yaml')
-    sys.exit()
+    sys.exit('ERROR: HISAT2 indexes not specified in config.yaml')
 
 
 try:
@@ -159,8 +153,7 @@ try:
         bowtie2_index = config['bowtie2_index'][config['assembly']]
     bowtie2_repeat_index = config['bowtie2_repeat_index'][config['assembly']]
 except:
-    print('Bowtie2 index not specified in config.yaml')
-    sys.exit() #no default, exit
+    sys.exit('ERROR: Bowtie2 index not specified in config.yaml') #no default, exit
 
 ################################################################################
 #make output directories (aren't created automatically on cluster)
@@ -168,7 +161,7 @@ except:
 
 Path(out_dir + "workup/logs/cluster").mkdir(parents=True, exist_ok=True)
 out_created = os.path.exists(out_dir + "workup/logs/cluster")
-print('Output logs path created:', out_created)
+INFO += 'Output logs path created: ' + str(out_created) + '\n'
 
 ################################################################################
 #Setup out files
@@ -235,6 +228,13 @@ Ht2_ANNO_RNA = expand([out_dir + "workup/alignments/{sample}.RNAex.hisat2.mapq20
                   sample=ALL_SAMPLES)
 
 
+################################################################################
+################################################################################
+# Execute before workflow starts
+################################################################################
+################################################################################
+onstart:
+    print(INFO)
 
 ################################################################################
 ################################################################################
@@ -252,6 +252,20 @@ rule all:
 #Send and email if an error occurs during execution
 onerror:
     shell('mail -s "an error occurred" ' + email + ' < {log}')
+
+
+################################################################################
+# Log
+################################################################################
+
+rule log_config:
+    '''Copy config.yaml and place in logs folder with the date run
+    '''
+    output:
+        out_dir + "workup/logs/config_" + run_date + "yaml"
+    run:
+        with open(output[0], 'w') as out:
+            yaml.dump(config, out, default_flow_style=False)
 
 ################################################################################
 #Merge
@@ -326,17 +340,6 @@ rule adaptor_trimming_pe:
         -o {out_dir}workup/trimmed/ \
         {input} &> {log}
         '''
-
-
-rule log_config:
-    '''Copy config.yaml and place in logs folder with the date run
-    '''
-    input:
-        config_path
-    output:
-        out_dir + "workup/logs/config_" + run_date + "yaml"
-    shell:
-        "cp {input} {output}"
 
 
 rule cutadapt:
@@ -483,6 +486,8 @@ rule annotate_dna:
     Users can specify the‘-O’ option to fully count them for each overlapping 
     meta-feature/feature (each overlapping meta-feature/feature 
     receives a count of 1 from a read (snoRNA's in introns of genes)
+
+    Perform unstranded read counting on DNA
     '''
     input:
         out_dir + f"workup/{anno_out_dir}/{{sample}}.DNA.bowtie2.mapq20{snpsplit_name}.bam"
@@ -506,19 +511,19 @@ rule annotate_dna:
         '''
         mv {input} {params.ex_rename}
         featureCounts -T {threads} -t exon \
-        -R BAM -M -s 1 \
+        -R BAM -M -s 0 \
         -g gene_name -a {exon_intron_gtf} -o {output.counts_exon} \
         {params.ex_rename}
 
         mv {params.ex_rename} {params.in_rename}
         featureCounts -T {threads} -t intron \
-        -R BAM -M -s 1 -O \
+        -R BAM -M -s 0 -O \
         -g gene_name -a {exon_intron_gtf} -o {output.counts_intron} \
         {params.in_rename}
 
         mv {params.in_rename} {params.r_rename}
         featureCounts -T {threads} -t exon \
-        -R BAM -M -s 1 \
+        -R BAM -M -s 0 \
         -g all_id -a {anno_repeats_gtf} -o {output.counts_rrna} \
         {params.r_rename}
 

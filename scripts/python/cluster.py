@@ -222,7 +222,6 @@ def get_clusters(bamfile, num_tags, genome_1, genome_2):
     the original read name with a double-colon.
     """
     #strip RPM DPM from barcode
-    #TODO add file name as an additional barcode
     
     clusters = Clusters()
     pattern = re.compile('::' + num_tags * '\[([a-zA-Z0-9_\-]+)\]')

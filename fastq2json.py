@@ -44,12 +44,19 @@ for folder in args.fastq_dir:
 					else:
 						m = re.search(r"(.+)_(R[12]).(fastq.gz|fq.gz|fastq|fq)", f)
 						reads_g = 2
-				#R1 will be forward reads, R2 will be reverse reads
-				m = re.search(r"(.+)_(R[12]).(fastq.gz|fq.gz|fastq|fq)", f)
+				#R1 will be forward reads, R2 will be reverse reads	
 				if m:
 					sample = m.group(1)
 					reads = m.group(reads_g)  
 					FILES[sample][reads].append(full_path)
+
+#Make sure file from different lanes are in correct order
+FILES_sorted = defaultdict(lambda: defaultdict(list))
+
+for sample in FILES.keys():
+		for read in FILES[sample]:
+			FILES_sorted[sample][read] = sorted(FILES[sample][read])
+
 				
 print()
 print ("total {} unique samples will be processed".format(len(FILES.keys())))
@@ -61,6 +68,6 @@ print ("------------------------------------------")
 print("check the samples.json file for fastqs belong to each sample")
 print()
 
-js = json.dumps(FILES, indent = 4, sort_keys=True)
+js = json.dumps(FILES_sorted, indent = 4, sort_keys=True)
 open('samples.json', 'w').writelines(js)
 
